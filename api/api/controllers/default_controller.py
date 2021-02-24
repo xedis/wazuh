@@ -12,7 +12,7 @@ from api.encoder import dumps, prettify
 from api.models.basic_info_model import BasicInfo
 from wazuh.core.common import date_format
 from wazuh.core.results import WazuhResult
-from wazuh.core.security import load_spec
+from wazuh.core.common import load_spec
 
 logger = logging.getLogger('wazuh-api')
 
