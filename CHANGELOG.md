@@ -282,7 +282,7 @@ All notable changes to this project will be documented in this file.
     - Added Apple MacOS 10.14 SCA ([#7035](https://github.com/wazuh/wazuh/pull/7035))
     - Added Apple MacOS 10.15 SCA ([#7036](https://github.com/wazuh/wazuh/pull/7036))
     - Added Apple MacOS 11.11 SCA ([#7037](https://github.com/wazuh/wazuh/pull/7037))
-
+  
 ### Changed
 
 - **Cluster:**
@@ -311,7 +311,7 @@ All notable changes to this project will be documented in this file.
   - Wazuh resources are now accessed by a relative path to the installation directory. ([#7327](https://github.com/wazuh/wazuh/pull/7327))
   - The error log that appeared when the agent cannot connect to SCA has been switched to warning. ([#8201](https://github.com/wazuh/wazuh/pull/8201))
   - The agent now validates the Audit connection configuration when enabling whodata for FIM on Linux. ([#8921](https://github.com/wazuh/wazuh/pull/8921))
-
+  
 - **API:**
   - Removed ruleset version from `GET /cluster/{node_id}/info` and `GET /manager/info` as it was deprecated. ([#6904](https://github.com/wazuh/wazuh/issues/6904))
   - Changed the `POST /groups` endpoint to specify the group name in a JSON body instead of in a query parameter. ([#6909](https://github.com/wazuh/wazuh/pull/6909))
@@ -354,7 +354,7 @@ All notable changes to this project will be documented in this file.
   - Upgrade GCP dependencies and pip to latest stable version.
   - Upgrade python-jose to 3.1.0.
   - Add tabulate dependency.
-
+  
 ### Fixed
 
 - **Cluster:**
@@ -556,7 +556,7 @@ All notable changes to this project will be documented in this file.
 
 - **API:**
   - Deprecated /manager/files and /cluster/{node_id}/files endpoints. ([#7209](https://github.com/wazuh/wazuh/issues/7209))
-
+  
 
 ## [v4.1.0] - 2021-02-15
 
