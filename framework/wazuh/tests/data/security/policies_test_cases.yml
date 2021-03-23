@@ -165,17 +165,18 @@ add_policy:
         "4009":
           - wazuhPolicy
   - params:
-      name: ossecPolicy
+      name: valid_policy_name
       policy:
         actions:
-          - agent:delete
+          - policy:read
+        effect: deny
         resources:
-          - agent
+          - policy:id:*
     result:
       affected_items: []
       failed_items:
-        "4006":
-          - ossecPolicy
+        "4027":
+          - valid_policy_name
 update_policy:
   - params:
       policy_id:
