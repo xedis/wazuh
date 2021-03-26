@@ -2,13 +2,15 @@
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GP
 
+from os import remove
+
 import yaml
 
 import api.middlewares as middlewares
 from api.authentication import change_keypair
 from api.constants import SECURITY_CONFIG_PATH
 from wazuh import WazuhInternalError, WazuhError
-from wazuh.rbac.orm import RolesManager, TokenManager
+from wazuh.rbac.orm import RolesManager, TokenManager, DATABASE_FULL_PATH, check_database_integrity
 
 REQUIRED_FIELDS = ['id']
 SORT_FIELDS = ['id', 'name']
@@ -117,3 +119,14 @@ def sanitize_rbac_policy(policy):
     # Sanitize effect
     if 'effect' in policy:
         policy['effect'] = policy['effect'].lower()
+
+
+def rbac_db_factory_reset():
+    """Reset the RBAC database to default values."""
+    try:
+        remove(DATABASE_FULL_PATH)
+    except IOError:
+        pass
+
+    check_database_integrity()
+    return {'result': 'True'}
