@@ -191,7 +191,6 @@ typedef enum wdb_stmt {
     WDB_STMT_GLOBAL_DELETE_GROUP_BELONG,
     WDB_STMT_GLOBAL_DELETE_GROUP,
     WDB_STMT_GLOBAL_SELECT_GROUPS,
-    WDB_STMT_GLOBAL_SELECT_AGENT_KEEPALIVE,
     WDB_STMT_GLOBAL_SYNC_REQ_GET,
     WDB_STMT_GLOBAL_SYNC_SET,
     WDB_STMT_GLOBAL_UPDATE_AGENT_INFO,
@@ -1183,17 +1182,6 @@ int wdb_parse_global_delete_group(wdb_t * wdb, char * input, char * output);
 int wdb_parse_global_select_groups(wdb_t * wdb, char * output);
 
 /**
- * @brief Function to parse the select keepalive request.
- *
- * @param [in] wdb The global struct database.
- * @param [in] input String with 'agent_name agent_ip'.
- * @param [out] output Response of the query.
- * @return 0 Success: response contains "ok".
- *        -1 On error: response contains "err" and an error description.
- */
-int wdb_parse_global_select_agent_keepalive(wdb_t * wdb, char * input, char * output);
-
-/**
  * @brief Function to parse sync-agent-info-get params and set next ID to iterate on further calls.
  *        If no last_id is provided. Last obtained ID is used.
  *
@@ -1674,16 +1662,6 @@ int wdb_global_delete_group(wdb_t *wdb, char* group_name);
  * @return JSON with all the groups on success. NULL on error.
  */
 cJSON* wdb_global_select_groups(wdb_t *wdb);
-
-/**
- * @brief Function to get an agent keepalive using the agent name and register ip.
- *
- * @param [in] wdb The Global struct database.
- * @param [in] name The agent name
- * @param [in] ip The agent ip
- * @return JSON with last_keepalive on success. NULL on error.
- */
-cJSON* wdb_global_select_agent_keepalive(wdb_t *wdb, char* name, char* ip);
 
 /**
  * @brief Function to update sync_status of a particular agent.
