@@ -147,15 +147,10 @@ STATIC bool group_changed(const char *multi_group);
  * @param agent_id. Agent id to assign a group
  * @param msg. Message from agent to process and validate current configuration files
  * @param group. Name of the found group, it will include the name of the group or 'default' group or NULL if it fails.
+ * @param wdb_sock Wazuh-DB socket.
  * @return OS_SUCCESS if it found or assigned a group, OS_INVALID otherwise
  */
-STATIC int lookfor_agent_group(const char *agent_id, char *msg, char **group);
-
-/*
- *  Read queue/agent-groups and delete this group for all the agents.
- *  Returns 0 on success or -1 on error
- */
-static int purge_group(char *group);
+STATIC int lookfor_agent_group(const char *agent_id, char *msg, char **group, int* wdb_sock);
 
 /* Groups structures and sizes */
 static group_t **groups;
@@ -675,9 +670,8 @@ STATIC void c_multi_group(char *multi_group, file_sum ***_f_sum, char *hash_mult
 
             if (files = wreaddir(dir), !files) {
                 if (errno != ENOTDIR) {
-                    if (!reported_non_existing_group) {
-                        mwarn("Could not open directory '%s'. Group folder was deleted.", dir);
-                    }
+                    mwarn("Could not open directory '%s'. Group folder was deleted.", dir);
+
                     wdb_remove_group_db(group, NULL);
                     goto next;
                 }
@@ -843,9 +837,7 @@ STATIC void process_groups() {
 }
 
 STATIC void process_multi_groups() {
-    DIR *dp;
     char ** subdir;
-    struct dirent *entry = NULL;
     char path[PATH_MAX + 1];
     OSHashNode *my_node;
     unsigned int i;
@@ -884,7 +876,6 @@ STATIC void process_multi_groups() {
             os_strdup(my_node->data, data);
         } else {
             os_free(key);
-            closedir(dp);
             return;
         }
 
@@ -1178,8 +1169,8 @@ STATIC int lookfor_agent_group(const char *agent_id, char *msg, char **r_group, 
 {
     char* group = NULL;
     char *end;
-    int ret = OS_INVALID;
     char *fmsg;
+    char *message;
 
     group = wdb_get_agent_group(atoi(agent_id), wdb_sock);
     if (group) {
