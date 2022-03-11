@@ -121,10 +121,33 @@ def test_get_manager_status():
             for value in status.values():
                 assert value == 'running'
 
+@pytest.mark.parametrize('exc', [
+    PermissionError,
+    FileNotFoundError
+])
+@patch('os.stat')
+def test_get_manager_status_ko(mock_stat, exc):
+    """Check that get_manager_status function correctly handles expected exceptions.
+
+    Parameters
+    ----------
+    exc : Exception
+        Expected exception to be handled.
+    """
+    mock_stat.side_effect = exc
+    with pytest.raises(WazuhInternalError, match='.* 1913 .*'):
+        utils.get_manager_status()
+
+
 def test_get_cluster_status():
-    """Check if cluster is enabled and if is running."""
+    """Check if cluster is enabled and running. Also check that cluster is shown as not running when a
+    WazuhInternalError is raised."""
     status = utils.get_cluster_status()
     assert {'enabled': 'no', 'running': 'no'} == status
+
+    with patch('wazuh.core.cluster.utils.get_manager_status', side_effect=WazuhInternalError(1913)):
+        status = utils.get_cluster_status()
+        assert {'enabled': 'no', 'running': 'no'} == status
 
 
 def test_manager_restart():
@@ -134,7 +157,7 @@ def test_manager_restart():
             with pytest.raises(WazuhInternalError, match='.* 1901 .*'):
                 utils.manager_restart()
 
-            with patch('wazuh.core.cluster.utils.exists', return_value=True):
+            with patch('os.path.exists', return_value=True):
                 with pytest.raises(WazuhInternalError, match='.* 1902 .*'):
                     utils.manager_restart()
 
@@ -186,7 +209,9 @@ def test_get_cluster_items():
                                               'sync_agent_groups': 10, 'timeout_agent_groups': 40,
                                               'timeout_agent_info': 40, 'max_locked_integrity_time': 1000},
                                    'communication': {'timeout_cluster_request': 20, 'timeout_dapi_request': 200,
-                                                     'timeout_receiving_file': 120}},
+                                                     'timeout_receiving_file': 120, 'min_zip_size': 31457280,
+                                                     'max_zip_size': 1073741824, 'compress_level': 1,
+                                                     'zip_limit_tolerance': 0.2}},
                      'distributed_api': {'enabled': True}}
 
 

@@ -29,12 +29,15 @@ with patch('wazuh.core.common.wazuh_uid'):
         from wazuh.core.cluster import common as cluster_common, client, master
         from wazuh.core import common
         from wazuh.core.cluster.dapi import dapi
+        from wazuh.core.utils import get_utc_strptime
 
 # Global variables
 
 cluster_items = {'node': 'master-node',
                  'intervals': {'worker': {'connection_retry': 1, "sync_integrity": 2, "sync_agent_info": 5},
-                               "communication": {"timeout_receiving_file": 1, "timeout_dapi_request": 1},
+                               "communication": {"timeout_receiving_file": 1, "timeout_dapi_request": 1,
+                                                 "max_zip_size": 1073741824, "min_zip_size": 31457280,
+                                                 "zip_limit_tolerance": 0.2},
                                'master': {'max_locked_integrity_time': 0, 'timeout_agent_info': 0,
                                           'timeout_agent_groups': 0, 'timeout_extra_valid': 0, 'process_pool_size': 10,
                                           'recalculate_integrity': 0, 'sync_agent_groups': 1}},
@@ -345,22 +348,26 @@ def test_master_handler_init():
         assert master_handler.sync_integrity_free[0] is True
         assert isinstance(master_handler.sync_integrity_free[1], datetime)
         assert master_handler.extra_valid_requested is False
-        assert master_handler.integrity_check_status == {'date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                         'date_end_master': datetime(1970, 1, 1, 0, 0)}
-        assert master_handler.integrity_sync_status == {'date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                        'tmp_date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                        'date_end_master': datetime(1970, 1, 1, 0, 0),
-                                                        'total_extra_valid': 0,
-                                                        'total_files': {'missing': 0, 'shared': 0, 'extra': 0,
-                                                                        'extra_valid': 0}}
-        assert master_handler.sync_agent_info_status == {'date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                         'date_end_master': datetime(1970, 1, 1, 0, 0),
-                                                         'n_synced_chunks': 0}
+        assert master_handler.integrity_check_status == {
+            'date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'date_end_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)}
+        assert master_handler.integrity_sync_status == {
+            'date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'tmp_date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'date_end_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'total_extra_valid': 0,
+            'total_files': {'missing': 0, 'shared': 0, 'extra': 0,
+                            'extra_valid': 0}}
+        assert master_handler.sync_agent_info_status == {
+            'date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'date_end_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+            'n_synced_chunks': 0}
         assert master_handler.version == ""
         assert master_handler.cluster_name == ""
         assert master_handler.node_type == ""
         assert master_handler.task_loggers == {}
         assert master_handler.tag == "Worker"
+        assert master_handler.current_zip_limit == cluster_items['intervals']['communication']['max_zip_size']
         assert cv.get() == master_handler.tag
 
 
@@ -384,14 +391,16 @@ def test_master_handler_to_dict():
     assert "sync_integrity_free" in output["status"]
     assert output["status"]["sync_integrity_free"] == master_handler.sync_integrity_free[0]
     assert "last_check_integrity" in output["status"]
-    assert output["status"]["last_check_integrity"] == {'date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                        'date_end_master': datetime(1970, 1, 1, 0, 0)}
+    assert output["status"]["last_check_integrity"] == {
+        'date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+        'date_end_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)}
     assert "last_sync_integrity" in output["status"]
-    assert output["status"]["last_sync_integrity"] == {'date_start_master': datetime(1970, 1, 1, 0, 0),
-                                                       'date_end_master': datetime(1970, 1, 1, 0, 0),
-                                                       'total_extra_valid': 0,
-                                                       'total_files': {'missing': 0, 'shared': 0, 'extra': 0,
-                                                                       'extra_valid': 0}}
+    assert output["status"]["last_sync_integrity"] == {
+        'date_start_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+        'date_end_master': datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc),
+        'total_extra_valid': 0,
+        'total_files': {'missing': 0, 'shared': 0, 'extra': 0,
+                        'extra_valid': 0}}
     assert "last_sync_agentinfo" in output["status"]
     assert output["status"]["last_sync_agentinfo"] == master_handler.sync_agent_info_status
     assert "last_keep_alive" in output["status"]
@@ -644,7 +653,7 @@ def test_master_handler_hello_ok(super_hello_mock, mkdir_with_mode_mock, join_mo
 
     super_hello_mock.assert_called_once_with(b"name")
     mkdir_with_mode_mock.assert_called_once_with("/some/path")
-    join_mock.assert_called_once_with(common.wazuh_path, "queue", "cluster", None)
+    join_mock.assert_called_once_with(common.WAZUH_PATH, "queue", "cluster", None)
     path_exists_mock.assert_called_once_with("/some/path")
 
     assert "Integrity check" in master_handler.task_loggers
@@ -1159,11 +1168,18 @@ async def test_master_handler_sync_worker_files_ko(decompress_files_mock, run_in
     master_handler = get_master_handler()
     master_handler.sync_tasks["task_id"] = TaskMock()
 
-    # Test the first exception
+    #  Test the first exception
+    with patch("wazuh.core.cluster.master.MasterHandler.send_request", return_value="response") as send_request_mock:
+        with pytest.raises(exception.WazuhClusterError, match='.* 3039 .*'):
+            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+                await master_handler.sync_worker_files("task_id", EventMock(), logging.getLogger("wazuh"))
+        send_request_mock.assert_called_once_with(command=b'cancel_task', data=ANY)
+
+    # Test the second exception
     with pytest.raises(Exception):
         await master_handler.sync_worker_files("task_id", EventMock(), logging.getLogger("wazuh"))
 
-    # Test the second exception
+    # Test the third exception
     with pytest.raises(exception.WazuhClusterError, match=r'.* 3038 .*'):
         master_handler.sync_tasks["task_id"].filename = ''
         await master_handler.sync_worker_files("task_id", EventMock(), logging.getLogger("wazuh"))
@@ -1188,7 +1204,7 @@ async def test_master_handler_sync_extra_valid(sync_worker_files_mock, logger_mo
     assert master_handler.integrity_sync_status['date_end_master'] == "2021-11-02T00:00:00.000000Z"
     logger_mock.assert_called_once_with(
         "Finished in {:.3f}s.".format(
-            (datetime.strptime(master_handler.integrity_sync_status['date_end_master'], '%Y-%m-%dT%H:%M:%S.%fZ') -
+            (get_utc_strptime(master_handler.integrity_sync_status['date_end_master'], '%Y-%m-%dT%H:%M:%S.%fZ') -
              master_handler.integrity_sync_status['tmp_date_start_master']).total_seconds()))
     assert master_handler.integrity_sync_status['date_start_master'] == "1970-01-01T00:00:00.000000Z"
     assert master_handler.extra_valid_requested is False
@@ -1251,9 +1267,10 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
     master_handler.sync_tasks = {"task_id": TaskMock()}
     master_handler.task_loggers["Integrity check"] = logging.getLogger("wazuh")
     master_handler.server = ServerMock()
+    master_handler.interrupted_tasks = {b"abcd", b"ok"}
 
     # Test the first condition (if)
-    assert await master_handler.sync_integrity("task_id", EventMock()) == b"ok"
+    assert await master_handler.sync_integrity("task_id", EventMock()) is None
 
     decompress_files_mock.assert_called_once_with(TaskMock().filename, 'files_metadata.json')
     compare_files_mock.assert_called_once_with(True, decompress_files_mock.return_value[0], None)
@@ -1274,14 +1291,14 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
 
     with patch("os.unlink") as unlink_mock:
         with patch("wazuh.core.cluster.cluster.compress_files", return_value="compressed_data") as compress_files_mock:
-            with patch("wazuh.core.cluster.master.MasterHandler.send_file") as send_file_mock:
+            with patch("wazuh.core.cluster.master.MasterHandler.send_file", return_value=100) as send_file_mock:
                 # Test the second condition (else -> try -> finally -> if)
                 reduce_mock.return_value = True
                 master_handler.task_loggers["Integrity sync"] = logging.getLogger("wazuh")
                 compare_files_mock.return_value = ({"missing": {"key": "value"}, "shared": {"key": "value"},
                                                     "extra": "1", "extra_valid": ""}, 0)
 
-                assert await master_handler.sync_integrity("task_id", EventMock()) == b"ok"
+                assert await master_handler.sync_integrity("task_id", EventMock()) is None
                 decompress_files_mock.assert_called_once_with(TaskMock().filename, 'files_metadata.json')
                 compare_files_mock.assert_called_once_with(True, decompress_files_mock.return_value[0], None)
                 send_request_mock.assert_has_calls(
@@ -1293,16 +1310,21 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                      call('Files to create in worker: 1 | Files to update in worker: 1 | Files to delete in worker: '
                           '1'), call('Finished in 0.000s.')])
                 debug_mock.assert_has_calls(
-                    [call("Waiting to receive zip file from worker."), call("Received file from worker: 'filename'"),
+                    [call("Waiting to receive zip file from worker."),
+                     call("Received file from worker: 'filename'"),
                      call("Compressing files to be synced in worker."),
-                     call("Zip with files to be synced sent to worker."), call("Finished sending files to worker.")])
+                     call("Zip with files to be synced sent to worker."),
+                     call(f"Decreasing sync size limit to "
+                          f"{cluster_items['intervals']['communication']['min_zip_size'] / (1024 * 1024):.2f} MB."),
+                     call("Finished sending files to worker.")])
                 reduce_mock.assert_called_once()
                 wait_for_mock.assert_called_once()
                 rmtree_mock.assert_called_once_with(decompress_files_mock.return_value[1])
                 unlink_mock.assert_called_once_with(compress_files_mock.return_value)
-                send_file_mock.assert_called_once_with(compress_files_mock.return_value)
+                send_file_mock.assert_called_once_with(compress_files_mock.return_value, send_request_mock.return_value)
                 assert master_handler.integrity_sync_status['date_end_master'] == "2021-11-02T00:00:00.000000Z"
                 assert master_handler.integrity_sync_status['date_start_master'] == "2021-11-02T00:00:00.000000Z"
+                assert master_handler.current_zip_limit == cluster_items['intervals']['communication']['min_zip_size']
 
                 # Reset all the mocks
                 all_mocks += [unlink_mock, compress_files_mock, send_file_mock]
@@ -1316,8 +1338,9 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                         compare_files_mock.return_value = ({"missing": {"key": "value"}, "shared": {"key": "value"},
                                                             "extra": "1", "extra_valid": "1"}, 0)
                         send_request_mock.return_value = Exception()
-                        assert await master_handler.sync_integrity("task_id",
-                                                                   EventMock()) == send_request_mock.return_value
+                        master_handler.current_zip_limit = \
+                            cluster_items['intervals']['communication']['max_zip_size'] - 1
+                        assert await master_handler.sync_integrity("task_id", EventMock()) is None
 
                         decompress_files_mock.assert_called_once_with(TaskMock().filename, 'files_metadata.json')
                         compare_files_mock.assert_called_once_with(True, decompress_files_mock.return_value[0], None)
@@ -1334,6 +1357,9 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                             [call("Waiting to receive zip file from worker."),
                              call("Received file from worker: 'filename'"),
                              call("Compressing files to be synced in worker."),
+                             call(f"Increasing sync size limit to "
+                                  f"{cluster_items['intervals']['communication']['max_zip_size'] / (1024 * 1024):.2f}"
+                                  f" MB."),
                              call("Finished sending files to worker.")])
                         reduce_mock.assert_called_once()
                         wait_for_mock.assert_called_once()
@@ -1344,6 +1370,8 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                             exception.WazuhClusterError(code=1000, extra_message=str(send_request_mock.return_value)),
                             cls=cluster_common.WazuhJSONEncoder)
                         send_file_mock.assert_not_called()
+                        assert master_handler.current_zip_limit == cluster_items['intervals']['communication'][
+                            'max_zip_size']
 
                         # Reset all the mocks
                         all_mocks += [error_mock, json_dumps_mock]
@@ -1355,8 +1383,7 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                         compare_files_mock.return_value = ({"missing": {"key": "value"}, "shared": {"key": "value"},
                                                             "extra": "1", "extra_valid": "1"}, 0)
                         send_request_mock.return_value = b"Error"
-                        assert await master_handler.sync_integrity("task_id",
-                                                                   EventMock()) == send_request_mock.return_value
+                        assert await master_handler.sync_integrity("task_id", EventMock()) is None
 
                         decompress_files_mock.assert_called_once_with(TaskMock().filename, 'files_metadata.json')
                         compare_files_mock.assert_called_once_with(True, decompress_files_mock.return_value[0], None)
@@ -1418,7 +1445,7 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                         json_dumps_mock.assert_called_once_with(
                             exception.WazuhClusterError(code=1000, extra_message=""),
                             cls=cluster_common.WazuhJSONEncoder)
-                        send_file_mock.assert_called_once_with("compressed_data")
+                        send_file_mock.assert_called_once_with("compressed_data", b"ok")
 
                         # Reset all mocks
                         for mock in all_mocks:
@@ -1455,13 +1482,16 @@ async def test_master_handler_sync_integrity_ok(decompress_files_mock, compare_f
                         json_dumps_mock.assert_called_once_with(
                             exception.WazuhClusterError(code=3016, extra_message="Error"),
                             cls=cluster_common.WazuhJSONEncoder)
-                        send_file_mock.assert_called_once_with("compressed_data")
+                        send_file_mock.assert_called_once_with("compressed_data", b"ok")
+
+                        assert master_handler.interrupted_tasks == {b"abcd"}
 
 
 @pytest.mark.asyncio
 @freeze_time("2021-11-02")
 @patch("asyncio.wait_for")
-async def test_master_handler_sync_integrity_ko(wait_for_mock):
+@patch("wazuh.core.cluster.master.MasterHandler.send_request", return_value="response")
+async def test_master_handler_sync_integrity_ko(send_request_mock, wait_for_mock):
     """Check if the exceptions are properly raised."""
 
     class EventMock:
@@ -1484,10 +1514,14 @@ async def test_master_handler_sync_integrity_ko(wait_for_mock):
     master_handler.sync_tasks = {"task_id": TaskMock()}
     master_handler.task_loggers["Integrity check"] = logging.getLogger("wazuh")
 
+    with pytest.raises(exception.WazuhClusterError, match='.* 3039 .*'):
+        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+            await master_handler.sync_integrity("task_id", EventMock())
+    send_request_mock.assert_called_once_with(command=b'cancel_task', data=ANY)
+
     with pytest.raises(Exception):
         await master_handler.sync_integrity("task_id", EventMock())
-
-    wait_for_mock.assert_called_once()
+        wait_for_mock.assert_called_once()
 
 
 @freeze_time("1970-01-01")
@@ -1536,7 +1570,7 @@ def test_master_handler_process_files_from_worker_ok(gid_mock, uid_mock, basenam
 
     basename_mock.return_value = "/os/path/basename"
     with patch("wazuh.core.cluster.cluster.unmerge_info",
-               return_value=[("/file/path", "file data", '1970-01-01 00:00:00.000')]) as unmerge_info_mock:
+               return_value=[("/file/path", "file data", '1970-01-01 00:00:00.000+00:00')]) as unmerge_info_mock:
         with patch('os.path.isfile', return_value=True) as isfile_mock:
             with patch('os.stat', return_value=StatMock()) as os_stas_mock:
                 # Test until the 'continue'
@@ -1546,9 +1580,9 @@ def test_master_handler_process_files_from_worker_ok(gid_mock, uid_mock, basenam
                                                                   timeout=timeout)
 
                 basename_mock.assert_has_calls([call('data'), call('/file/path')])
-                path_join_mock.assert_has_calls([call(common.wazuh_path, 'data'),
-                                                 call(common.wazuh_path, '/file/path'),
-                                                 call(common.wazuh_path, 'queue', 'cluster', 'wazuh',
+                path_join_mock.assert_has_calls([call(common.WAZUH_PATH, 'data'),
+                                                 call(common.WAZUH_PATH, '/file/path'),
+                                                 call(common.WAZUH_PATH, 'queue', 'cluster', 'wazuh',
                                                       '/os/path/basename')])
                 unmerge_info_mock.assert_called_once_with('type', decompressed_files_path, 'name')
                 assert result == {'total_updated': 0, 'errors_per_folder': defaultdict(list), 'generic_errors': []}
@@ -1560,16 +1594,16 @@ def test_master_handler_process_files_from_worker_ok(gid_mock, uid_mock, basenam
                 reset_mock(all_mocks)
 
                 # Test until the 'continue'
-                unmerge_info_mock.return_value = [("/file/path", "file data", '1970-01-01 00:00:00')]
+                unmerge_info_mock.return_value = [("/file/path", "file data", '1970-01-01 00:00:00+00:00')]
                 result = master_handler.process_files_from_worker(files_metadata=files_metadata,
                                                                   decompressed_files_path=decompressed_files_path,
                                                                   cluster_items=cluster_items, worker_name=worker_name,
                                                                   timeout=timeout)
 
                 basename_mock.assert_has_calls([call('data'), call('/file/path')])
-                path_join_mock.assert_has_calls([call(common.wazuh_path, 'data'),
-                                                 call(common.wazuh_path, '/file/path'),
-                                                 call(common.wazuh_path, 'queue', 'cluster', 'wazuh',
+                path_join_mock.assert_has_calls([call(common.WAZUH_PATH, 'data'),
+                                                 call(common.WAZUH_PATH, '/file/path'),
+                                                 call(common.WAZUH_PATH, 'queue', 'cluster', 'wazuh',
                                                       '/os/path/basename')])
                 unmerge_info_mock.assert_called_once_with('type', decompressed_files_path, 'name')
                 assert result == {'total_updated': 0, 'errors_per_folder': defaultdict(list), 'generic_errors': []}
@@ -1593,9 +1627,9 @@ def test_master_handler_process_files_from_worker_ok(gid_mock, uid_mock, basenam
                 assert result == {'errors_per_folder': defaultdict(list, {'queue/testing/': ["'queue/testing/'"]}),
                                   'generic_errors': [], 'total_updated': 0}
                 basename_mock.assert_has_calls([call('data'), call('/file/path')])
-                path_join_mock.assert_has_calls([call(common.wazuh_path, 'data'),
-                                                 call(common.wazuh_path, '/file/path'),
-                                                 call(common.wazuh_path, 'queue', 'cluster', 'wazuh',
+                path_join_mock.assert_has_calls([call(common.WAZUH_PATH, 'data'),
+                                                 call(common.WAZUH_PATH, '/file/path'),
+                                                 call(common.WAZUH_PATH, 'queue', 'cluster', 'wazuh',
                                                       '/os/path/basename')])
                 unmerge_info_mock.assert_called_once_with('type', decompressed_files_path, 'name')
                 isfile_mock.assert_called_once_with(path_join_mock.return_value)

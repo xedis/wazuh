@@ -594,7 +594,7 @@ def test_agent_reconnect(socket_mock, send_mock, mock_send_msg):
     """Test if method reconnect calls send_msg method with correct params."""
     agent_id = '000'
     agent = Agent(agent_id)
-    agent.reconnect(WazuhQueue(common.ARQUEUE))
+    agent.reconnect(WazuhQueue(common.AR_SOCKET))
 
     # Assert send_msg method is called with correct params
     mock_send_msg.assert_called_with(WazuhQueue.HC_FORCE_RECONNECT, agent_id)
@@ -623,12 +623,16 @@ def test_agent_remove(mock_remove_authd):
         mock_remove_authd.assert_called_once_with(False), 'Not expected params'
 
 
-@patch('wazuh.core.agent.Agent._remove_authd', return_value='Agent was successfully deleted')
-def test_agent_remove_ko(mock_remove_authd):
+def test_agent_remove_ko():
     """Tests if method remove() raises expected exception"""
     with pytest.raises(WazuhError, match='.* 1726 .*'):
         agent = Agent('000')
         agent.remove()
+
+    with patch('wazuh.core.agent.get_manager_status', side_effect=WazuhInternalError(1913)):
+        with pytest.raises(WazuhError, match='.* 1726 .*'):
+            agent = Agent(0)
+            agent.remove()
 
 
 @patch('wazuh.core.agent.WazuhSocketJSON')
@@ -678,7 +682,7 @@ def test_agent_add(mock_add_authd, authd_status, ip, id, key, force):
 
 
 @patch('wazuh.core.agent.get_manager_status', return_value={'wazuh-authd': 'stopped'})
-def test_agent_add_ko(mock_maganer_status):
+def test_agent_add_ko(mock_manager_status):
     """Test if _add() method raises expected exception."""
     agent = Agent('001')
 
@@ -690,6 +694,10 @@ def test_agent_add_ko(mock_maganer_status):
 
     with pytest.raises(WazuhError, match='.* 1726 .*'):
         agent._add('test_name', '192.168.0.0')
+
+    with patch('wazuh.core.agent.get_manager_status', side_effect=WazuhInternalError(1913)):
+        with pytest.raises(WazuhError, match='.* 1726 .*'):
+            agent._add('test_name', '192.168.0.0')
 
 
 @pytest.mark.parametrize("name, ip, id, key, force", [
@@ -1226,6 +1234,30 @@ def test_agent_get_stats_ko(socket_mock, send_mock, mock_wazuh_socket):
         agent.get_stats('logcollector')
 
 
+@pytest.mark.parametrize('upgrade_version', [
+    '4.4.0',
+    'v4.4.0',
+    'wazuh 4.4.0',
+    'wazuh v4.4.0'
+])
+def test_unify_wazuh_upgrade_version_format(upgrade_version):
+    """Test that unify_wazuh_upgrade_version_format is properly working."""
+    assert unify_wazuh_upgrade_version_format(upgrade_version) == 'v4.4.0'
+
+
+@pytest.mark.parametrize('version', [
+    'v4.4.0',
+    '4.4.0',
+    'wazuh v4.4.0',
+    'wazuh 4.4.0'
+])
+def test_unify_wazuh_version_format(version):
+    """Test that unify_wazuh_version_format is properly working."""
+    dkt = {'version': version}
+    unify_wazuh_version_format(dkt)
+    assert dkt['version'] == 'wazuh v4.4.0'
+
+
 @pytest.mark.parametrize('agents_list, versions_list', [
     (['001', '002', '003', '004'],
      [{'version': ver} for ver in ['Wazuh v4.2.0', 'Wazuh v4.0.0', 'Wazuh v4.2.1', 'Wazuh v3.13.2']])
@@ -1244,7 +1276,7 @@ def test_send_restart_command(wq_mock, wq_send_msg, agents_list, versions_list):
     """
     with patch('wazuh.core.agent.Agent.get_basic_information', side_effect=versions_list):
         for agent_id, agent_version in zip(agents_list, versions_list):
-            wq = WazuhQueue(common.ARQUEUE)
+            wq = WazuhQueue(common.AR_SOCKET)
             send_restart_command(agent_id, agent_version['version'], wq)
             expected_msg = WazuhQueue.RESTART_AGENTS_JSON if WazuhVersion(
                 agent_version['version']) >= WazuhVersion(common.AR_LEGACY_VERSION) else WazuhQueue.RESTART_AGENTS
@@ -1269,7 +1301,7 @@ def test_get_groups():
     expected_result = {'group-1', 'group-2'}
     shared = os.path.join(test_data_path, 'shared')
 
-    with patch('wazuh.core.common.shared_path', new=shared):
+    with patch('wazuh.core.common.SHARED_PATH', new=shared):
         try:
             for group in list(expected_result):
                 os.makedirs(os.path.join(shared, group))

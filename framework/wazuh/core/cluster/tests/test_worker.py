@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import sys
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, ANY
 
 import pytest
 import uvloop
@@ -180,6 +180,7 @@ async def test_sync_files_sync_ok(compress_files_mock, unlink_mock, relpath_mock
         def __init__(self):
             self.name = "Testing"
             self.count = 1
+            self.interrupted_tasks = {b'OK', b'abcd'}
 
         async def send_request(self, command, data):
             """Decide with will be the right output depending on the scenario."""
@@ -219,15 +220,15 @@ async def test_sync_files_sync_ok(compress_files_mock, unlink_mock, relpath_mock
         with patch.object(logging.getLogger("wazuh"), "debug") as logger_debug_mock:
             with patch.object(logging.getLogger("wazuh"), "error") as logger_error_mock:
                 await sync_files.sync(files_to_sync, files_metadata)
-                send_file_mock.assert_called_once_with(filename='files/path/')
+                send_file_mock.assert_called_once_with(filename='files/path/', task_id=b'OK')
                 logger_debug_mock.assert_has_calls([call(
                     f"Compressing {'files and ' if files_to_sync else ''}'files_metadata.json' of {len(files_metadata)}"
                     f" files."), call("Sending zip file to master."), call("Zip file sent to master.")])
                 logger_error_mock.assert_called_once_with("Error sending zip file: ")
-                compress_files_mock.assert_called_once_with(name="Testing", list_path=files_to_sync,
-                                                            cluster_control_json=files_metadata)
+                compress_files_mock.assert_has_calls([call(name="Testing", list_path=files_to_sync,
+                                                           cluster_control_json=files_metadata)]*2)
                 unlink_mock.assert_called_once_with("files/path/")
-                relpath_mock.assert_called_once_with('files/path/', core_common.wazuh_path)
+                relpath_mock.assert_called_once_with('files/path/', core_common.WAZUH_PATH)
                 assert json_dumps_mock.call_count == 2
 
                 # Reset all mocks
@@ -239,7 +240,7 @@ async def test_sync_files_sync_ok(compress_files_mock, unlink_mock, relpath_mock
                 # Test elif present in try and first exception
                 worker_mock.count = 3
                 await sync_files.sync(files_to_sync, files_metadata)
-                send_file_mock.assert_called_once_with(filename='files/path/')
+                send_file_mock.assert_called_once_with(filename='files/path/', task_id=b'OK')
                 logger_debug_mock.assert_has_calls([call(
                     f"Compressing {'files and ' if files_to_sync else ''}'files_metadata.json' of {len(files_metadata)}"
                     f" files."), call("Sending zip file to master."), call("Zip file sent to master.")])
@@ -248,7 +249,7 @@ async def test_sync_files_sync_ok(compress_files_mock, unlink_mock, relpath_mock
                 compress_files_mock.assert_called_once_with(name="Testing", list_path=files_to_sync,
                                                             cluster_control_json=files_metadata)
                 unlink_mock.assert_called_once_with("files/path/")
-                relpath_mock.assert_called_once_with('files/path/', core_common.wazuh_path)
+                relpath_mock.assert_called_once_with('files/path/', core_common.WAZUH_PATH)
                 json_dumps_mock.assert_called_once()
 
                 # Reset all mocks
@@ -260,14 +261,18 @@ async def test_sync_files_sync_ok(compress_files_mock, unlink_mock, relpath_mock
             # Test return
             worker_mock.count = 4
             assert await sync_files.sync(files_to_sync, files_metadata) is True
-            send_file_mock.assert_called_once_with(filename='files/path/')
+            send_file_mock.assert_called_once_with(filename='files/path/', task_id=b'OK')
             logger_debug_mock.assert_has_calls([call(
                 f"Compressing {'files and ' if files_to_sync else ''}'files_metadata.json' of {len(files_metadata)}"
                 f" files."), call("Sending zip file to master."), call("Zip file sent to master.")])
             compress_files_mock.assert_called_once_with(name="Testing", list_path=files_to_sync,
                                                         cluster_control_json=files_metadata)
             unlink_mock.assert_called_once_with("files/path/")
-            relpath_mock.assert_called_once_with('files/path/', core_common.wazuh_path)
+            relpath_mock.assert_called_once_with('files/path/', core_common.WAZUH_PATH)
+
+            assert worker_mock.interrupted_tasks == {b'abcd'}
+
+            assert worker_mock.interrupted_tasks == {b'abcd'}
 
 
 @pytest.mark.asyncio
@@ -315,7 +320,7 @@ def test_worker_handler_connection_result(connection_result_mock, join_mock, mkd
 
     worker_handler.connected = True
     worker_handler.connection_result("something")
-    join_mock.assert_called_once_with(core_common.wazuh_path, "queue", "cluster", "Testing")
+    join_mock.assert_called_once_with(core_common.WAZUH_PATH, "queue", "cluster", "Testing")
     exists_mock.assert_called_once_with("/some/path")
     mkdir_with_mode_mock.assert_called_once_with("/some/path")
     connection_result_mock.assert_called_once()
@@ -850,6 +855,7 @@ async def test_worker_handler_general_agent_sync_task(socket_mock, perf_counter_
 @freeze_time('1970-01-01')
 @patch.object(logging.getLogger("wazuh.Integrity sync"), "debug")
 @patch("wazuh.core.cluster.worker.SyncFiles.sync", return_value=True)
+@patch('wazuh.core.cluster.worker.perf_counter', return_value=0)
 @patch("wazuh.core.cluster.cluster.merge_info", return_value=("n_files", "merged_file"))
 async def test_worker_handler_sync_extra_valid(merge_info_mock, sync_mock, logger_debug_mock):
     """Test the 'sync_extra_valid' method."""
@@ -1052,8 +1058,7 @@ async def test_worker_handler_process_files_from_master_ko(send_request_mock, js
     wait_mock.side_effect = Exception
     with pytest.raises(exception.WazuhClusterError, match=r".* 3039 .*"):
         await worker_handler.process_files_from_master(name="task_id", file_received=event_mock)
-
-        send_request_mock.assert_called_once_with(command=b'syn_i_w_m_r', data=b'None ' + "".encode())
+    send_request_mock.assert_called_with(command=b'cancel_task', data=b'task_id ')
 
 
 @patch("builtins.open")
@@ -1116,11 +1121,11 @@ def test_worker_handler_update_master_files_in_worker_ok(wazuh_gid_mock, wazuh_u
                             [call("Processing file filename1"),
                              call("Processing file filename1"),
                              call("Remove file: 'filename3'")])
-                        path_join_mock.assert_has_calls([call(core_common.wazuh_path, 'filename1'),
-                                                         call(core_common.wazuh_path, 'name'),
-                                                         call(core_common.wazuh_path, 'filename1'),
+                        path_join_mock.assert_has_calls([call(core_common.WAZUH_PATH, 'filename1'),
+                                                         call(core_common.WAZUH_PATH, 'name'),
+                                                         call(core_common.WAZUH_PATH, 'filename1'),
                                                          call('/zip/path', 'filename1'),
-                                                         call(core_common.wazuh_path, 'filename3')])
+                                                         call(core_common.WAZUH_PATH, 'filename3')])
                         wazuh_uid_mock.assert_called_with()
                         wazuh_gid_mock.assert_called_with()
                         mkdir_with_mode_mock.assert_any_call("queue/testing")
@@ -1155,9 +1160,9 @@ def test_worker_handler_update_master_files_in_worker_ok(wazuh_gid_mock, wazuh_u
                      call("Processing file filename2"),
                      call("Remove file: 'filename3'"),
                      call("File filename3 doesn't exist.")])
-                path_join_mock.assert_has_calls([call(core_common.wazuh_path, "filename1"),
-                                                 call(core_common.wazuh_path, "filename2"),
-                                                 call(core_common.wazuh_path, "filename3")])
+                path_join_mock.assert_has_calls([call(core_common.WAZUH_PATH, "filename1"),
+                                                 call(core_common.WAZUH_PATH, "filename2"),
+                                                 call(core_common.WAZUH_PATH, "filename3")])
                 wazuh_uid_mock.assert_not_called()
                 wazuh_gid_mock.assert_not_called()
                 mkdir_with_mode_mock.assert_not_called()
