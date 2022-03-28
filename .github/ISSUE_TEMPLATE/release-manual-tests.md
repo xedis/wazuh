@@ -2,7 +2,7 @@
 name: Release manual tests 
 about: Report the results after running manual tests for the specified release.
 title: 'Release [WAZUH VERSION] - Manual tests - [TEST NAME]'
-labels: 'release/v4.3.0, qa'
+labels: 'release/4.3.0, qa'
 assignees: ''
 
 ---
@@ -17,6 +17,7 @@ The following issue aims to run the specified test for the current release candi
 | **Deployment option** |                                            |
 
 ## Test description
+ADD TEST DESCRIPTION HERE
 
 ## Test report procedure
 All individual test checks must be marked as:
@@ -42,7 +43,6 @@ An extended report of the test results must be attached as a zip or txt. Please 
 
 ## Conclusions
 
-<!--
 All tests have been executed and the results can be found [here]().
 
 |                |             |                     |                |
@@ -51,13 +51,11 @@ All tests have been executed and the results can be found [here]().
 |                |             |                     |                |
 
 All tests have passed and the fails have been reported or justified. I therefore conclude that this issue is finished and OK for this release candidate.
--->
 
 ## Auditors validation
 The definition of done for this one is the validation of the conclusions and the test results from all auditors.
 
 All checks from below must be accepted in order to close this issue.
 
-- [ ] 
-- [ ]
-- [ ] 
+- [ ] MODULE OWNER
+- [ ] @santiago-basset
