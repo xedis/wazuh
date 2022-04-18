@@ -9,20 +9,81 @@
 
 #include "stageParse.hpp"
 
+#include <any>
 #include <stdexcept>
 #include <string>
+#include <typeindex>
+#include <typeinfo>
 #include <vector>
+
+#include <fmt/format.h>
 
 #include "registry.hpp"
 #include <hlp/hlp.hpp>
 #include <logging/logging.hpp>
 
-#include <fmt/format.h>
-
 namespace builder::internals::builders
 {
+static bool
+any2Json(std::any const &anyVal, std::string const &path, json::Document *doc)
+{
+    auto &type = anyVal.type();
+    if (type == typeid(void))
+    {
+        doc->set(path, {nullptr, doc->getAllocator()});
+    }
+    else if (type == typeid(long))
+    {
+        json::Value val;
+        val.SetInt64(std::any_cast<long>(anyVal));
+        doc->set(path, val);
+    }
+    else if (type == typeid(int))
+    {
+        json::Value val;
+        val.SetInt(std::any_cast<int>(anyVal));
+        doc->set(path, val);
+    }
+    else if (type == typeid(unsigned))
+    {
+        json::Value val;
+        val.SetUint(std::any_cast<unsigned>(anyVal));
+        doc->set(path, val);
+    }
+    else if (type == typeid(float))
+    {
+        json::Value val;
+        val.SetFloat(std::any_cast<float>(anyVal));
+        doc->set(path, val);
+    }
+    else if (type == typeid(double))
+    {
+        json::Value val;
+        val.SetDouble(std::any_cast<double>(anyVal));
+        doc->set(path, val);
+    }
+    else if (type == typeid(std::string))
+    {
+        const auto &s = std::any_cast<std::string>(anyVal);
+        doc->set(path, {s.c_str(), doc->getAllocator()});
+    }
+    else if (type == typeid(hlp::JsonString))
+    {
+        const auto &s = std::any_cast<hlp::JsonString>(anyVal);
+        rapidjson::Document d(&doc->getAllocator());
+        d.Parse<rapidjson::kParseStopWhenDoneFlag>(s.jsonString.data());
+        doc->set(path, d);
+    }
+    else
+    {
+        // ASSERT
+        return false;
+    }
+    return true;
+}
 
-types::Lifter stageBuilderParse(const types::DocumentValue &def, types::TracerFn tr)
+types::Lifter stageBuilderParse(const types::DocumentValue &def,
+                                types::TracerFn tr)
 {
     // Assert value is as expected
     if (!def.IsObject())
@@ -68,7 +129,7 @@ types::Lifter stageBuilderParse(const types::DocumentValue &def, types::TracerFn
         ParserFn parseOp;
         try
         {
-            parseOp = getParserOp(logQlExpr);
+            parseOp = hlp::getParserOp(logQlExpr);
         }
         catch (std::runtime_error &e)
         {
@@ -84,7 +145,7 @@ types::Lifter stageBuilderParse(const types::DocumentValue &def, types::TracerFn
             return o.map(
                 [parserOp = std::move(parserOp)](types::Event e)
                 {
-                    const auto & ev = e->get("/message");
+                    const auto &ev = e->get("/message");
                     if (!ev.IsString())
                     {
                         // TODO error
@@ -101,9 +162,12 @@ types::Lifter stageBuilderParse(const types::DocumentValue &def, types::TracerFn
 
                     for (auto const &val : result)
                     {
-                        auto name =
-                            json::formatJsonPath(val.first.c_str());
-                        e->set(name, {val.second.c_str(), e->getAllocator()});
+                        auto name = json::formatJsonPath(val.first.c_str());
+                        if(!any2Json(val.second, name, e.get()))
+                        {
+                            //ERROR
+                            return e;
+                        }
                     }
 
                     return e;
