@@ -115,26 +115,6 @@ types::Lifter stageBuilderParse(const types::DocumentValue &def,
             "[Stage parse]Must have some expressions configured.");
     }
 
-
-    //Configure parsers
-    std::ifstream in("../test/assets/schemas/field_type.json",
-                     std::ios::in | std::ios::binary);
-    if (in)
-    {
-        std::string contents;
-        in.seekg(0, std::ios::end);
-        contents.resize(in.tellg());
-        in.seekg(0, std::ios::beg);
-        in.read(&contents[0], contents.size());
-        in.close();
-
-        hlp::configureParserMappings(contents);
-    }
-    else
-    {
-            throw std::invalid_argument("Error reading logql configuration schema");
-    }
-
     std::vector<types::Lifter> parsers;
     for (auto const &item : logqlArr.GetArray())
     {
