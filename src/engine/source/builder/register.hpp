@@ -77,20 +77,12 @@ void registerBuilders()
     Registry::registerBuilder("helper.kvdb_extract", builders::opBuilderKVDBExtract);
     Registry::registerBuilder("helper.kvdb_match", builders::opBuilderKVDBMatch);
     Registry::registerBuilder("helper.kvdb_notmatch", builders::opBuilderKVDBNotMatch);
-    // Combinators
-    Registry::registerBuilder("combinator.chain", builders::combinatorBuilderChain);
-    Registry::registerBuilder("combinator.broadcast", builders::combinatorBuilderBroadcast);
     // Stages
     Registry::registerBuilder("check", builders::stageBuilderCheck);
     Registry::registerBuilder("allow", builders::stageBuilderCheck);
     Registry::registerBuilder("parse", builders::stageBuilderParse);
     Registry::registerBuilder("normalize", builders::stageBuilderNormalize);
     Registry::registerBuilder("outputs", builders::stageBuilderOutputs);
-    // Assets
-    Registry::registerBuilder("decoder", builders::assetBuilderDecoder);
-    Registry::registerBuilder("filter", builders::assetBuilderFilter);
-    Registry::registerBuilder("rule", builders::assetBuilderRule);
-    Registry::registerBuilder("output", builders::assetBuilderOutput);
 }
 } // namespace builder::internals
 

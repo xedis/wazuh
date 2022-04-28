@@ -20,6 +20,7 @@
 
 #include <fmt/format.h>
 
+#include "builders/combinatorBuilderBroadcast.hpp"
 #include "registry.hpp"
 #include <hlp/hlp.hpp>
 #include <logging/logging.hpp>
@@ -185,8 +186,7 @@ types::Lifter stageBuilderParse(const types::DocumentValue& def,
 
     try
     {
-        auto check = std::get<types::CombinatorBuilder>(
-            Registry::getBuilder("combinator.broadcast"))(parsers);
+        auto check = combinatorBuilderBroadcast(parsers);
         return check;
     }
     catch (std::exception& e)

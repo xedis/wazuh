@@ -13,7 +13,8 @@
 #include <string>
 #include <vector>
 
-#include "registry.hpp"
+#include "builders/combinatorBuilderChain.hpp"
+#include "builders/opBuilderCondition.hpp"
 
 #include <fmt/format.h>
 #include <logging/logging.hpp>
@@ -38,8 +39,7 @@ types::Lifter stageBuilderCheck(const types::DocumentValue &def, types::TracerFn
     {
         try
         {
-            conditions.push_back(std::get<types::OpBuilder>(
-                Registry::getBuilder("condition"))(*it, tr));
+            conditions.push_back(opBuilderCondition(*it, tr));
         }
         catch (std::exception &e)
         {
@@ -57,8 +57,7 @@ types::Lifter stageBuilderCheck(const types::DocumentValue &def, types::TracerFn
     types::Lifter check;
     try
     {
-        check = std::get<types::CombinatorBuilder>(
-            Registry::getBuilder("combinator.chain"))(conditions);
+        check = combinatorBuilderChain(conditions);
     }
     catch (std::exception &e)
     {
@@ -70,8 +69,6 @@ types::Lifter stageBuilderCheck(const types::DocumentValue &def, types::TracerFn
                           "all conditions.";
         std::throw_with_nested(std::runtime_error(std::move(msg)));
     }
-
-    // Finally return Lifter
     return check;
 }
 

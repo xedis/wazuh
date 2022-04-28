@@ -16,10 +16,10 @@
 
 namespace builder::internals
 {
-std::unordered_map<std::string, types::BuilderVariant> Registry::m_registry;
+std::unordered_map<std::string, types::OpBuilder> Registry::m_registry;
 
 void Registry::registerBuilder(const std::string &builderName,
-                               const types::BuilderVariant &builder)
+                               const types::OpBuilder &builder)
 {
 
     auto ret = m_registry.try_emplace(builderName, builder);
@@ -33,7 +33,7 @@ void Registry::registerBuilder(const std::string &builderName,
     }
 }
 
-types::BuilderVariant Registry::getBuilder(const std::string &builderName)
+types::OpBuilder Registry::getBuilder(const std::string &builderName)
 {
     auto it = m_registry.find(builderName);
     if (it == m_registry.end())
@@ -47,5 +47,4 @@ types::BuilderVariant Registry::getBuilder(const std::string &builderName)
 
     return it->second;
 }
-
 } // namespace builder::internals

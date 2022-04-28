@@ -16,13 +16,15 @@
 
 #include <fmt/format.h>
 
+#include "builders/combinatorBuilderChain.hpp"
+#include "builders/stageBuilderCheck.hpp"
 #include "registry.hpp"
 #include <logging/logging.hpp>
 
 namespace builder::internals::builders
 {
 
-types::ConnectableT assetBuilderDecoder(const types::Document &def)
+types::ConnectableT assetBuilderDecoder(const types::Document& def)
 {
     // Assert document is as expected
     if (!def.m_doc.IsObject())
@@ -37,7 +39,7 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
     std::vector<types::Lifter> stages;
 
     // Needed to build stages in a for loop popping its attributes
-    std::map<std::string, const types::DocumentValue &> attributes;
+    std::map<std::string, const types::DocumentValue&> attributes;
     try
     {
         for (auto it = def.m_doc.MemberBegin(); it != def.m_doc.MemberEnd();
@@ -46,9 +48,9 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
             attributes.emplace(it->name.GetString(), it->value);
         }
     }
-    catch (std::exception &e)
+    catch (std::exception& e)
     {
-        const char *msg =
+        const char* msg =
             "Decoder builder encountered exception in building auxiliary map.";
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::runtime_error(msg));
@@ -61,9 +63,9 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
         name = attributes.at("name").GetString();
         attributes.erase("name");
     }
-    catch (std::exception &e)
+    catch (std::exception& e)
     {
-        const char *msg =
+        const char* msg =
             "Decoder builder encountered exception building attribute name.";
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::invalid_argument(msg));
@@ -75,15 +77,15 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
     {
         try
         {
-            for (const types::DocumentValue &parentName :
+            for (const types::DocumentValue& parentName :
                  attributes.at("parents").GetArray())
             {
                 parents.push_back(parentName.GetString());
             }
         }
-        catch (std::exception &e)
+        catch (std::exception& e)
         {
-            const char *msg = "Decoder builder encountered exception building "
+            const char* msg = "Decoder builder encountered exception building "
                               "attribute parents.";
             WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
             std::throw_with_nested(std::invalid_argument(msg));
@@ -92,18 +94,18 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
     }
 
     // Build tracer
-    types::ConnectableT::Tracer tr{name};
+    types::ConnectableT::Tracer tr {name};
 
     // Stage check
     try
     {
-        stages.push_back(std::get<types::OpBuilder>(
-            Registry::getBuilder("check"))(attributes.at("check"), tr.tracerLogger()));
+        stages.push_back(
+            stageBuilderCheck(attributes.at("check"), tr.tracerLogger()));
         attributes.erase("check");
     }
-    catch (std::exception &e)
+    catch (std::exception& e)
     {
-        const char *msg =
+        const char* msg =
             "Decoder builder encountered exception building stage check.";
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::runtime_error(msg));
@@ -115,11 +117,11 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
     {
         try
         {
-            stages.push_back(std::get<types::OpBuilder>(
-                Registry::getBuilder(it->first))(it->second, tr.tracerLogger()));
+            stages.push_back(
+                Registry::getBuilder(it->first)(it->second, tr.tracerLogger()));
             toPop.push_back(it->first);
         }
-        catch (std::exception &e)
+        catch (std::exception& e)
         {
             auto msg = fmt::format(
                 "Decoder builder encountered exception building stage [{}]",
@@ -136,7 +138,7 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
     }
     if (!attributes.empty())
     {
-        const char *msg =
+        const char* msg =
             "Decoder builder, json definition contains unproccessed attributes";
         WAZUH_LOG_ERROR("{}", msg);
         throw std::invalid_argument(msg);
@@ -144,14 +146,13 @@ types::ConnectableT assetBuilderDecoder(const types::Document &def)
 
     try
     {
-        types::Lifter decoder = std::get<types::CombinatorBuilder>(
-            Registry::getBuilder("combinator.chain"))(stages);
+        types::Lifter decoder = combinatorBuilderChain(stages);
         // Finally return connectable
         return types::ConnectableT {name, parents, decoder, tr};
     }
-    catch (std::exception &e)
+    catch (std::exception& e)
     {
-        const char *msg = "Decoder builder encountered exception building "
+        const char* msg = "Decoder builder encountered exception building "
                           "chaining all stages.";
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::runtime_error(msg));

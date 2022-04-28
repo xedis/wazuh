@@ -21,7 +21,7 @@ namespace builder::internals
 class Registry
 {
 private:
-    static std::unordered_map<std::string, types::BuilderVariant> m_registry;
+    static std::unordered_map<std::string, types::OpBuilder> m_registry;
 
 public:
     /**
@@ -31,7 +31,7 @@ public:
      * @param builder
      */
     static void registerBuilder(const std::string &builderName,
-                                const types::BuilderVariant &builder);
+                                const types::OpBuilder &builder);
 
     /**
      * @brief Get the Builder object
@@ -39,7 +39,7 @@ public:
      * @param builderName
      * @return builder_t
      */
-    static types::BuilderVariant getBuilder(const std::string &builderName);
+    static types::OpBuilder getBuilder(const std::string &builderName);
 };
 
 } // namespace builder::internals

@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include "builders/combinatorBuilderChain.hpp"
+#include "builders/stageBuilderCheck.hpp"
 #include "registry.hpp"
 
 #include <logging/logging.hpp>
@@ -90,7 +92,7 @@ types::ConnectableT assetBuilderRule(const types::Document & def)
     // Stage check
     try
     {
-        stages.push_back(std::get<types::OpBuilder>(Registry::getBuilder("check"))(attributes.at("check"), tr.tracerLogger()));
+        stages.push_back(stageBuilderCheck(attributes.at("check"), tr.tracerLogger()));
         attributes.erase("check");
     }
     catch (std::exception & e)
@@ -106,8 +108,8 @@ types::ConnectableT assetBuilderRule(const types::Document & def)
     {
         try
         {
-            stages.push_back(std::get<types::OpBuilder>(
-                Registry::getBuilder(it->first))(it->second, tr.tracerLogger()));
+            stages.push_back(
+                Registry::getBuilder(it->first)(it->second, tr.tracerLogger()));
             toPop.push_back(it->first);
         }
         catch (std::exception & e)
@@ -133,8 +135,7 @@ types::ConnectableT assetBuilderRule(const types::Document & def)
     // Combine all stages
     try
     {
-        types::Lifter decoder = std::get<types::CombinatorBuilder>(
-            Registry::getBuilder("combinator.chain"))(stages);
+        types::Lifter decoder = combinatorBuilderChain(stages);
         // Finally return connectable
         return types::ConnectableT {name, parents, decoder, tr};
     }

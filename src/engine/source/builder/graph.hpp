@@ -2,11 +2,8 @@
 #define _GRAPH_H
 
 #include <functional>
-#include <map>
 #include <set>
-#include <sstream>
-#include <utility>
-#include <vector>
+#include <unordered_map>
 
 #include "builderTypes.hpp"
 
@@ -28,13 +25,13 @@ public:
      * as value
      *
      */
-    std::map<std::string, types::ConnectableT> m_nodes;
+    std::unordered_map<std::string, types::ConnectableT> m_nodes;
 
     /**
      * @brief graph edes are represented by the connection between a
      * Connectable name and its set of Connectable child names.
      */
-    std::map<std::string, std::set<std::string>> m_edges;
+    std::unordered_map<std::string, std::set<std::string>> m_edges;
 
     /**
      * @brief Adds a value to the graph, and initializes its child set
@@ -42,7 +39,7 @@ public:
      *
      * @param a Value
      */
-    void addNode(types::ConnectableT conn)
+    void addNode(types::ConnectableT const& conn)
     {
         if (m_nodes.count(conn.m_name) != 0)
         {
@@ -68,39 +65,43 @@ public:
      * @param root Name of connectable root for this graph
      * @param end  Name of output connectable for this graph
      */
-    void addParentEdges(std::string root, std::string end)
+    void addParentEdges(std::string const& root, std::string const& end)
     {
-        addNode(types::ConnectableT(root));
-        addNode(types::ConnectableT(end));
-        for (auto &node : m_nodes)
+        addNode({root});
+        addNode({end});
+        for (auto& [name, node] : m_nodes)
         {
-            if (node.first == root || node.first == end)
-                continue;
-
-            if (node.second.m_parents.size() == 0)
+            if (name == root || name == end)
             {
-                node.second.m_parents.insert(root);
-                addEdge(root, node.first);
+                continue;
+            }
+
+            if (node.m_parents.empty())
+            {
+                node.m_parents.insert(root);
+                addEdge(root, name);
             }
             else
             {
-                for (auto &parent : node.second.m_parents)
+                for (auto& parent : node.m_parents)
                 {
-                    addEdge(parent, node.first);
+                    addEdge(parent, name);
                 }
             }
         }
 
         // Add leaves to end
-        for (auto &edge : m_edges)
+        for (auto& [name, edge] : m_edges)
         {
-            if (edge.first == root || edge.first == end)
-                continue;
-
-            if (edge.second.size() == 0)
+            if (name == root || name == end)
             {
-                m_nodes[end].m_parents.insert(edge.first);
-                addEdge(edge.first, end);
+                continue;
+            }
+
+            if (edge.empty())
+            {
+                m_nodes[end].m_parents.insert(name);
+                addEdge(name, end);
             }
         }
     }
@@ -116,10 +117,21 @@ public:
      * @param otherInputNode
      * @return Graph
      */
-    Graph join(const Graph &other,
-               std::string thisOutputNode,
-               std::string otherInputNode) const
+    Graph join(const Graph& other,
+               std::string const& thisOutputNode,
+               std::string const& otherInputNode) const
     {
+        // TODO this is probably a bit hacky
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        if (m_nodes.empty() && m_edges.empty())
+        {
+            return other;
+        }
+
         if (m_nodes.count(thisOutputNode) == 0)
         {
             throw std::invalid_argument("Connectable " + thisOutputNode +
@@ -133,20 +145,20 @@ public:
 
         // TODO: joining a subgraph that has a node with same name as this graph
         // would lead to wrong graph structure.
-        Graph g;
-        std::map<std::string, types::ConnectableT> auxObs {m_nodes};
-        g.m_nodes.merge(auxObs);
-        auxObs = other.m_nodes;
-        g.m_nodes.merge(auxObs);
-        std::map<std::string, std::set<std::string>> auxEdges {m_edges};
-        g.m_edges.merge(auxEdges);
-        auxEdges = other.m_edges;
-        g.m_edges.merge(auxEdges);
+        auto auxObs {m_nodes};
+        auto auxEdges {m_edges};
+        auto otherNodes {other.m_nodes};
+        auto otherEdges {other.m_edges};
 
-        g.addEdge(thisOutputNode, otherInputNode);
-        g.m_nodes[otherInputNode].m_parents.insert(thisOutputNode);
+        Graph ret;
+        ret.m_nodes.merge(auxObs);
+        ret.m_nodes.merge(otherNodes);
+        ret.m_edges.merge(auxEdges);
+        ret.m_edges.merge(otherEdges);
+        ret.addEdge(thisOutputNode, otherInputNode);
+        ret.m_nodes[otherInputNode].m_parents.insert(thisOutputNode);
 
-        return g;
+        return ret;
     }
 
     /**
@@ -158,24 +170,25 @@ public:
      * @param other
      * @return Graph
      */
-    Graph inject(const Graph &other) const
+    Graph inject(const Graph& other) const
     {
-        Graph g;
-        std::map<std::string, types::ConnectableT> auxObs {m_nodes};
-        g.m_nodes.merge(auxObs);
-        std::map<std::string, std::set<std::string>> auxEdges {m_edges};
-        g.m_edges.merge(auxEdges);
+        auto auxObs {m_nodes};
+        auto auxEdges {m_edges};
 
-        for (auto &node : other.m_nodes)
+        Graph ret;
+        ret.m_nodes.merge(auxObs);
+        ret.m_edges.merge(auxEdges);
+
+        for (auto& [name, node] : other.m_nodes)
         {
-            g.addNode(node.second);
-            for (auto &p : node.second.m_parents)
+            ret.addNode(node);
+            for (auto& p : node.m_parents)
             {
-                g.injectEdge(p, node.first);
+                ret.injectEdge(p, name);
             }
         }
 
-        return g;
+        return ret;
     }
 
     /**
@@ -185,7 +198,7 @@ public:
      * @param a parent to inject into
      * @param b node to become the only child of a
      */
-    void injectEdge(std::string a, std::string b)
+    void injectEdge(std::string const& a, std::string const& b)
     {
         if (m_nodes.count(a) == 0)
         {
@@ -198,13 +211,11 @@ public:
                                         " is not in the graph");
         }
 
-        for (auto &child : m_edges[a])
+        for (auto& child : m_edges[a])
         {
-            auto it = std::find(m_nodes[child].m_parents.begin(),
-                                m_nodes[child].m_parents.end(),
-                                a);
-            m_nodes[child].m_parents.erase(it);
-            m_nodes[child].m_parents.insert(b);
+            auto& nd = m_nodes[child];
+            nd.m_parents.erase(a);
+            nd.m_parents.insert(b);
         }
 
         m_edges[b].merge(m_edges[a]);
@@ -217,7 +228,7 @@ public:
      * @param a Value
      * @param b Value
      */
-    void removeEdge(std::string a, std::string b)
+    void removeEdge(std::string const& a, std::string const& b)
     {
         if (m_nodes.count(a) == 0)
         {
@@ -245,24 +256,24 @@ public:
      * @param a
      * @param b
      */
-    void addEdge(std::string a, std::string b)
+    void addEdge(std::string const& a, std::string const& b)
     {
         if (m_nodes.count(a) == 0)
         {
-            throw std::invalid_argument("Connectable " + a +
-                                        " is not in the graph");
+            throw std::invalid_argument(
+                fmt::format("Connectable [{}] is not in the graph", a));
         }
         if (m_nodes.count(b) == 0)
         {
-            throw std::invalid_argument("Connectable " + b +
-                                        " is not in the graph");
+            throw std::invalid_argument(
+                fmt::format("Connectable [{}] is not in the graph", b));
         }
 
         // TODO: Maybe we just try to insert and not throw
         if (!m_edges[a].insert(b).second)
         {
-            throw std::invalid_argument("Connectable " + b +
-                                        " is already a child of " + a);
+            throw std::invalid_argument(fmt::format(
+                "Connectable [{}] is already a child of [{}]", a, b));
         }
     }
 
@@ -272,9 +283,12 @@ public:
      *
      * @param fn
      */
-    void visit(std::function<void(types::ConnectableT)> fn)
+    template<typename Visitor>
+    void visit(Visitor fn)
     {
-        for (auto &n : m_nodes)
+        static_assert(std::is_invocable_v<Visitor, types::ConnectableT>,
+                      "Calling visit with a non-compatible callable");
+        for (auto& n : m_nodes)
         {
             fn(n.second);
         }
@@ -285,9 +299,12 @@ public:
      *
      * @param fn visitor function will receive only a Value
      */
-    void leaves(std::function<void(types::ConnectableT)> fn) const
+    template<typename Visitor>
+    void leaves(Visitor fn) const
     {
-        for (auto &n : m_edges)
+        static_assert(std::is_invocable_v<Visitor, types::ConnectableT>,
+                      "Calling visit with a non-compatible callable");
+        for (auto& n : m_edges)
         {
             if (n.second.size() == 0)
                 fn(n.first);
@@ -300,21 +317,24 @@ public:
      *
      * @return std::stringstream
      */
-    std::stringstream print() const
+    std::string print() const
     {
-        std::stringstream diagraph;
-        diagraph << "digraph G {" << std::endl;
-        for (auto &n : m_edges)
+        std::string diagraph = "digraph G {\n";
+        for (auto& n : m_edges)
         {
             if (n.second.size() > 0)
-                for (auto &c : n.second)
-                    diagraph << "\"" << n.first << "\" -> \"" << c << "\""
-                             << ";" << std::endl;
+            {
+                for (auto& c : n.second)
+                {
+                    diagraph += fmt::format("\"{}\"->\"{}\";\n", n.first, c);
+                }
+            }
             else
-                diagraph << "\"" << n.first << "\""
-                         << " -> void;" << std::endl;
+            {
+                diagraph += fmt::format("\"{}\" -> void;\n", n.first);
+            }
         }
-        diagraph << "}" << std::endl;
+        diagraph += "}\n";
         return diagraph;
     }
 
@@ -324,9 +344,14 @@ public:
      * @param node
      * @return types::ConnectableT&
      */
-    types::ConnectableT &operator[](std::string node)
+    types::ConnectableT& operator[](std::string const& node)
     {
         return m_nodes[node];
+    }
+
+    bool empty() const
+    {
+        return m_nodes.empty() && m_edges.empty();
     }
 };
 } // namespace builder::internals

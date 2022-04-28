@@ -181,4 +181,53 @@ std::string Catalog::getFileContents(AssetType type,
 
     return {};
 }
+
+EnvironmentDefinition
+Catalog::getEnvironmentDefinition(std::string const& envName) const
+{
+    EnvironmentDefinition ret;
+    ret.name = envName;
+    auto environment = getAsset(AssetType::Environment, envName);
+    for (auto it = environment.MemberBegin(); it != environment.MemberEnd();
+         ++it)
+    {
+        if (it->name == "decoders")
+        {
+            for (auto const& d : it->value.GetArray())
+            {
+                ret.assetList.push_back(
+                    {AssetType::Decoder,
+                     getAsset(AssetType::Decoder, d.GetString())});
+            }
+        }
+        else if (it->name == "rules")
+        {
+            for (auto const& r : it->value.GetArray())
+            {
+                ret.assetList.push_back(
+                    {AssetType::Rule,
+                     getAsset(AssetType::Rule, r.GetString())});
+            }
+        }
+        else if (it->name == "filters")
+        {
+            for (auto const& f : it->value.GetArray())
+            {
+                ret.assetList.push_back(
+                    {AssetType::Filter,
+                     getAsset(AssetType::Filter, f.GetString())});
+            }
+        }
+        else if (it->name == "outputs")
+        {
+            for (auto const& o : it->value.GetArray())
+            {
+                ret.assetList.push_back(
+                    {AssetType::Output,
+                     getAsset(AssetType::Output, o.GetString())});
+            }
+        }
+    }
+    return ret;
+}
 } // namespace catalog

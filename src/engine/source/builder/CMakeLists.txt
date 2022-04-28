@@ -19,6 +19,7 @@ CPMAddPackage(
 # Sources - Includes
 ####################################################################################################
 add_library(builders OBJECT
+    builder.cpp
     builders/assetBuilderDecoder.cpp
     builders/assetBuilderFilter.cpp
     builders/assetBuilderOutput.cpp
@@ -31,10 +32,10 @@ add_library(builders OBJECT
     builders/opBuilderFileOutput.cpp
     builders/opBuilderHelperFilter.cpp
     builders/opBuilderHelperMap.cpp
+    builders/opBuilderKVDB.cpp
     builders/opBuilderMap.cpp
     builders/opBuilderMapReference.cpp
     builders/opBuilderMapValue.cpp
-    builders/opBuilderKVDB.cpp
     builders/stageBuilderCheck.cpp
     builders/stageBuilderNormalize.cpp
     builders/stageBuilderOutputs.cpp
@@ -52,4 +53,4 @@ target_include_directories(builders
 )
 
 #TODO do this better. Also, who 'owns' the rxcpp dep
-target_link_libraries(builders base hlp kvdb re2)
+target_link_libraries(builders base catalog hlp kvdb re2)

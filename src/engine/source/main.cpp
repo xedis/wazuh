@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <argparse/argparse.hpp>
+#include <fmt/ostream.h>
 
 #include <builder.hpp>
 #include <catalog.hpp>
@@ -142,9 +143,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    catalog::Catalog _catalog(catalog::StorageType::Local, storagePath);
+    catalog::Catalog catalog(catalog::StorageType::Local, storagePath);
 
-    auto hlpParsers = _catalog.getFileContents(catalog::AssetType::Schema,
+    auto hlpParsers = catalog.getFileContents(catalog::AssetType::Schema,
                                                "wazuh-logql-types");
     // TODO because builders don't have access to the catalog we are configuring
     // the parser mappings on start up for now
@@ -159,8 +160,6 @@ int main(int argc, char* argv[])
         WAZUH_LOG_ERROR("Exception while registering builders: [{}]", e.what());
         return 1;
     }
-    // TODO: Handle errors on construction
-    builder::Builder<catalog::Catalog> _builder(_catalog);
 
     // Processing Workers (Router), Router is replicated in each thread
     // TODO: handle hot modification of routes
@@ -171,8 +170,7 @@ int main(int argc, char* argv[])
             {
                 WAZUH_PROFILE_THREAD_NAME(
                     fmt::format("[worker:{}]", i).c_str());
-                router::Router<builder::Builder<catalog::Catalog>> router {
-                    _builder};
+                router::Router router {catalog};
 
                 try
                 {
@@ -192,10 +190,8 @@ int main(int argc, char* argv[])
                 // reworked router
                 auto cerrLogger = [name = "test_environment"](auto msg)
                 {
-                    std::stringstream ssTid;
-                    ssTid << std::this_thread::get_id();
-                    std::cerr
-                        << fmt::format("{}: [{}]{}\n", ssTid.str(), name, msg);
+                    std::cerr << fmt::format(
+                        "{}: [{}]{}\n", std::this_thread::get_id(), name, msg);
                 };
                 if (traceAll)
                 {
@@ -204,7 +200,7 @@ int main(int argc, char* argv[])
                 }
                 else if (trace)
                 {
-                    for (auto assetName : traceNames)
+                    for (auto const& assetName : traceNames)
                     {
                         router.subscribeTraceSink(
                             "test_environment", assetName, cerrLogger);
@@ -214,9 +210,7 @@ int main(int argc, char* argv[])
                 // Thread loop
                 while (gs_doRun)
                 {
-                    std::string event;
-
-                    if (eventBuffer.wait_dequeue_timed(
+                    if (std::string event; eventBuffer.wait_dequeue_timed(
                             event, WAIT_DEQUEUE_TIMEOUT_USEC))
                     {
                         WAZUH_TRACE_SCOPE("Router on-next");

@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "builders/opBuilderMapReference.hpp"
+#include "builders/opBuilderMapValue.hpp"
 #include "registry.hpp"
 #include "syntax.hpp"
 
@@ -19,7 +21,6 @@
 
 namespace builder::internals::builders
 {
-
 types::Lifter opBuilderMap(const types::DocumentValue& def, types::TracerFn tr)
 {
     // Check that input is as expected and throw exception otherwise
@@ -49,32 +50,29 @@ types::Lifter opBuilderMap(const types::DocumentValue& def, types::TracerFn tr)
         {
             // TODO: handle that only allowed map helpers are built
             case syntax::FUNCTION_HELPER_ANCHOR:
-                return std::get<types::OpBuilder>(Registry::getBuilder(
-                    "helper." + vStr.substr(1, std::string::npos)))(def, tr);
+                return Registry::getBuilder(
+                    "helper." + vStr.substr(1, std::string::npos))(def, tr);
                 break;
             case syntax::REFERENCE_ANCHOR:
-                return std::get<types::OpBuilder>(
-                    Registry::getBuilder("map.reference"))(def, tr);
+                return opBuilderMapReference(def, tr);
                 break;
             default:
-                return std::get<types::OpBuilder>(
-                    Registry::getBuilder("map.value"))(def, tr);
+                return opBuilderMapValue(def, tr);
         }
     }
     else if (v->value.IsArray())
     {
-        return std::get<types::OpBuilder>(Registry::getBuilder("map.array"))(
-            def, tr);
+        //TODO there's no handler for this
+        return Registry::getBuilder("map.array")( def, tr);
     }
     else if (v->value.IsObject())
     {
-        return std::get<types::OpBuilder>(Registry::getBuilder("map.object"))(
-            def, tr);
+        //TODO there's no handler for this
+        return Registry::getBuilder("map.object")(def, tr);
     }
     else
     {
-        return std::get<types::OpBuilder>(Registry::getBuilder("map.value"))(
-            def, tr);
+        return opBuilderMapValue(def, tr);
     }
 }
 

@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "builders/combinatorBuilderBroadcast.hpp"
 #include "registry.hpp"
 
 #include <logging/logging.hpp>
@@ -38,7 +39,9 @@ types::Lifter stageBuilderOutputs(const types::DocumentValue & def, types::Trace
     {
         try
         {
-            outputs.push_back(std::get<types::OpBuilder>(Registry::getBuilder(it->MemberBegin()->name.GetString()))(it->MemberBegin()->value, tr));
+            outputs.push_back(
+                Registry::getBuilder(it->MemberBegin()->name.GetString())(
+                    it->MemberBegin()->value, tr));
         }
         catch (std::exception & e)
         {
@@ -52,7 +55,7 @@ types::Lifter stageBuilderOutputs(const types::DocumentValue & def, types::Trace
     types::Lifter output;
     try
     {
-        output = std::get<types::CombinatorBuilder>(Registry::getBuilder("combinator.broadcast"))(outputs);
+        output = combinatorBuilderBroadcast(outputs);
     }
     catch (std::exception & e)
     {
@@ -60,9 +63,6 @@ types::Lifter stageBuilderOutputs(const types::DocumentValue & def, types::Trace
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::runtime_error(msg));
     }
-
-    // Finally return Lifter
     return output;
 }
-
 } // namespace builder::internals::builders

@@ -8,8 +8,6 @@
 
 #include <rapidjson/document.h>
 
-class IStorage;
-
 namespace catalog
 {
 
@@ -28,6 +26,18 @@ enum class StorageType
     Local,
     Network,
     Invalid,
+};
+
+struct Asset
+{
+    AssetType type;
+    rapidjson::Document content;
+};
+
+struct EnvironmentDefinition
+{
+    std::string name;
+    std::vector<Asset> assetList;
 };
 
 /**
@@ -111,6 +121,8 @@ public:
                                  std::string const& assetName) const;
 
     std::string getFileContents(AssetType type, std::string const& file) const;
+
+    EnvironmentDefinition getEnvironmentDefinition(std::string const& envName) const;
 };
 
 } // namespace catalog

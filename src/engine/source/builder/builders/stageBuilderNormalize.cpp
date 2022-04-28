@@ -13,19 +13,23 @@
 #include <string>
 #include <vector>
 
-#include "registry.hpp"
+#include "builders/combinatorBuilderChain.hpp"
+#include "builders/opBuilderMap.hpp"
 
 #include <logging/logging.hpp>
 
 namespace builder::internals::builders
 {
 
-types::Lifter stageBuilderNormalize(const types::DocumentValue & def, types::TracerFn tr)
+types::Lifter stageBuilderNormalize(const types::DocumentValue& def,
+                                    types::TracerFn tr)
 {
     // Assert value is as expected
     if (!def.IsArray())
     {
-        auto msg = fmt::format("Stage normalize builder, expected array but got [{}].", def.GetType());
+        auto msg =
+            fmt::format("Stage normalize builder, expected array but got [{}].",
+                        def.GetType());
         WAZUH_LOG_ERROR("{}", msg);
         throw std::invalid_argument(msg);
     }
@@ -36,11 +40,12 @@ types::Lifter stageBuilderNormalize(const types::DocumentValue & def, types::Tra
     {
         try
         {
-            mappings.push_back(std::get<types::OpBuilder>(Registry::getBuilder("map"))(*it, tr));
+            mappings.push_back(opBuilderMap(*it, tr));
         }
-        catch (std::exception & e)
+        catch (std::exception& e)
         {
-            const char* msg = "Stage normalize builder encountered exception on building.";
+            const char* msg =
+                "Stage normalize builder encountered exception on building.";
             WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
             std::throw_with_nested(std::runtime_error(msg));
         }
@@ -48,12 +53,11 @@ types::Lifter stageBuilderNormalize(const types::DocumentValue & def, types::Tra
 
     try
     {
-        return std::get<types::CombinatorBuilder>(
-            Registry::getBuilder("combinator.chain"))(mappings);
+        return combinatorBuilderChain(mappings);
     }
-    catch(std::exception &e)
+    catch (std::exception& e)
     {
-        const char *msg = "Stage normalize builder encountered exception "
+        const char* msg = "Stage normalize builder encountered exception "
                           "chaining all mappings.";
         WAZUH_LOG_ERROR("{} From exception: [{}]", msg, e.what());
         std::throw_with_nested(std::runtime_error(msg));
