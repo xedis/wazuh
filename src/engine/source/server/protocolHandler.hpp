@@ -11,8 +11,8 @@
 #define _PROTOCOL_HANDLER_H
 
 #include <optional>
-
-#include "json.hpp"
+#include <string>
+#include <vector>
 
 namespace engineserver
 {
@@ -40,13 +40,6 @@ private:
 
 public:
     /**
-     * @brief generate a json::Document from internal state
-     *
-     * @return json::Document
-     */
-    static std::shared_ptr<json::Document> parse(const std::string &event);
-
-    /**
      * @brief process the chunk of data and send messages to dst when. Return
      * true if all data was processed correctly, or false in case of error.
      * The error will be send to the dst.
@@ -57,7 +50,7 @@ public:
      * @return true and vector of strings if no errors
      * @return false if errors in processing
      */
-    std::optional<std::vector<std::string>> process(const char *data,
+    std::optional<std::vector<std::string>> process(const char* data,
                                                     const size_t length);
 };
 

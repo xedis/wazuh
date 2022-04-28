@@ -31,7 +31,6 @@ struct Environment
 
     std::string name;
     std::unordered_map<std::string, rxcpp::observable<std::string>> traceSinks;
-    internals::types::Lifter lifter;
     rxcpp::subjects::subject<internals::types::Event> subject;
 
     /**
@@ -72,6 +71,8 @@ struct Environment
     }
 };
 
+using EnvironmentRef = std::shared_ptr<Environment>;
+
 /**
  * @brief The builder class is the responsible to transform and environment
  * definition into a graph of RXCPP operations.
@@ -86,7 +87,7 @@ struct Environment
  * @param name Environment name to build/lift
  * @return envBuilder
  */
-Environment buildEnvironment(catalog::EnvironmentDefinition const& envDefinition);
+EnvironmentRef buildEnvironment(catalog::EnvironmentDefinition const& envDefinition);
 
 } // namespace builder
 #endif // _BUILDER_H

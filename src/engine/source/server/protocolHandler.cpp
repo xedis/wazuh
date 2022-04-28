@@ -18,7 +18,6 @@
 
 namespace engineserver
 {
-
 bool ProtocolHandler::hasHeader()
 {
     if (m_buff.size() == sizeof(int))
@@ -33,54 +32,6 @@ bool ProtocolHandler::hasHeader()
         return true;
     }
     return false;
-}
-
-std::shared_ptr<json::Document> ProtocolHandler::parse(const std::string& event)
-{
-    auto doc = std::make_shared<json::Document>();
-    doc->m_doc.SetObject();
-    rapidjson::Document::AllocatorType& allocator = doc->getAllocator();
-
-    auto queuePos = event.find(":");
-    try
-    {
-        int queue = std::stoi(event.substr(0, queuePos));
-        doc->m_doc.AddMember("queue", queue, allocator);
-    }
-    // std::out_of_range and std::invalid_argument
-    catch (...)
-    {
-        std::throw_with_nested(std::invalid_argument("Error parsing queue id"));
-    }
-
-    auto locPos = event.find(":", queuePos + 1);
-    try
-    {
-        rapidjson::Value loc;
-        std::string location = event.substr(queuePos, locPos);
-        loc.SetString(location.c_str(), location.length(), allocator);
-        doc->m_doc.AddMember("location", loc, allocator);
-    }
-    catch (std::out_of_range& e)
-    {
-        std::throw_with_nested(
-            ("Error parsing location using token sep :" + event));
-    }
-
-    try
-    {
-        rapidjson::Value msg;
-        std::string message = event.substr(locPos + 1, std::string::npos);
-        msg.SetString(message.c_str(), message.length(), allocator);
-        doc->m_doc.AddMember("message", msg, allocator);
-    }
-    catch (std::out_of_range& e)
-    {
-        std::throw_with_nested(
-            ("Error parsing location using token sep :" + event));
-    }
-
-    return doc;
 }
 
 std::optional<std::vector<std::string>>
@@ -139,5 +90,4 @@ ProtocolHandler::process(const char* data, const size_t length)
 
     return std::optional<std::vector<std::string>>(std::move(events));
 }
-
 } // namespace engineserver

@@ -10,18 +10,30 @@
 #ifndef _ROUTER_H
 #define _ROUTER_H
 
-#include <algorithm>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 
-#include <fmt/format.h>
+//TODO still exposing rxcpp
 #include <rxcpp/rx.hpp>
 
-#include "json.hpp"
-#include <builder.hpp>
-// TODO revise catalog dep
-#include <catalog.hpp>
+namespace json
+{
+struct Document;
+}
+
+// TODO there's probably a better home for this without having to include the
+// whole json header
+using JsonDocRef = std::shared_ptr<json::Document>;
+
+namespace builder
+{
+struct Environment;
+}
+
+namespace catalog
+{
+struct Catalog;
+}
 
 namespace router
 {
@@ -34,7 +46,7 @@ struct Route
 {
     std::string name;
     std::string to;
-    std::function<bool(std::shared_ptr<json::Document>)> filterFn;
+    std::function<bool(JsonDocRef)> filterFn;
     rxcpp::composite_subscription subscription;
 
     ~Route()
@@ -67,11 +79,10 @@ struct Route
  *
  * @tparam Builder injected builder type to build environments
  */
+//TODO maybe consider a pimpl implementation to hide all the dependencies?
 class Router
 {
 private:
-    using ServerOutputObs = rxcpp::observable<rxcpp::observable<std::string>>;
-
     std::unordered_map<std::string, std::shared_ptr<builder::Environment>>
         m_environments;
     std::unordered_map<std::string, Route> m_routes;
@@ -86,11 +97,8 @@ public:
      *
      * @param builder Injected Builder object
      */
-    Router(catalog::Catalog const& catalog) noexcept
-        : m_catalog {catalog}
-        , m_input {m_subj.get_subscriber()}
-    {
-    }
+    Router(catalog::Catalog const& catalog);
+    ~Router();
 
     /**
      * @brief Add a route
@@ -100,68 +108,19 @@ public:
      * @param filterFunction Filter function to select forwarded envent
      */
     void add(
-        const std::string& route,
-        const std::string& environmentName,
-        const std::function<bool(std::shared_ptr<json::Document>)>
-            filterFunction = [](const auto) { return true; })
-    {
-        // Assert route with same name not exists
-        if (m_routes.count(route) > 0)
-        {
-            throw std::invalid_argument("Error, route " + route +
-                                        " is already in use");
-        }
-
-        auto envIt = m_environments.find(environmentName);
-        if (envIt == m_environments.end())
-        {
-            auto envDef = m_catalog.getEnvironmentDefinition(environmentName);
-            auto env = builder::buildEnvironment(envDef);
-            env.lifter(env.subject.get_observable());
-            envIt = m_environments
-                        .insert({environmentName,
-                                 std::make_shared<builder::Environment>(env)})
-                        .first;
-        }
-
-        // Route filtered events to enviroment, Router subject implements
-        // multicasting (we need to call get_observable for each filter added)
-        auto subscription =
-            m_subj.get_observable()
-                .filter(filterFunction)
-                .subscribe(envIt->second->subject.get_subscriber());
-
-        m_routes[route] = {route, environmentName, filterFunction, subscription};
-    }
+        const std::string& routeName,
+        const std::string& envName,
+        const std::function<bool(JsonDocRef)> filterFunction = [](const auto)
+        { return true; });
 
     /**
      * @brief Delete route
      *
      * @param route Name of the route to be deleted
      */
-    void remove(const std::string& route)
-    {
-        auto r = m_routes.find(route);
-        if (r == m_routes.end())
-        {
-            throw std::invalid_argument(
-                "Error, route " + route +
-                " can not be deleted because is not registered");
-        }
+    void remove(const std::string& route);
 
-        m_routes.erase(r->second.to);
-        m_environments.erase(r->second.to);
-    }
-
-    /**
-     * @brief Obtain Router subscriber to inject events.
-     *
-     * @return const rxcpp::subscriber<json::Document>&
-     */
-    const rxcpp::subscriber<std::shared_ptr<json::Document>>& input() const
-    {
-        return m_input;
-    }
+    void routeEvent(std::string const& event);
 
     /**
      * @brief Subscribe to specified trace sink.
@@ -172,20 +131,7 @@ public:
      */
     void subscribeTraceSink(std::string environment,
                             std::string asset,
-                            std::function<void(std::string)> subscriberOnNext)
-    {
-        if (m_environments.count(environment) > 0)
-        {
-            m_environments[environment]->subscribeTraceSink(asset,
-                                                            subscriberOnNext);
-        }
-        else
-        {
-            throw std::runtime_error(fmt::format(
-                "Error subscribing trace sink, enviroment [{}] does not exists",
-                environment));
-        }
-    }
+                            std::function<void(std::string)> subscriberOnNext);
 
     /**
      * @brief Subscribes to all trace sinks for specified environment
@@ -195,22 +141,7 @@ public:
      */
     void
     subscribeAllTraceSinks(std::string environment,
-                           std::function<void(std::string)> subscriberOnNext)
-    {
-        if (m_environments.count(environment) > 0)
-        {
-            m_environments[environment]->subscribeAllTraceSinks(
-                subscriberOnNext);
-        }
-        else
-        {
-            throw std::runtime_error(fmt::format(
-                "Error subscribing trace sink, enviroment [{}] does not exists",
-                environment));
-        }
-    }
+                           std::function<void(std::string)> subscriberOnNext);
 };
-
 } // namespace router
-
 #endif // _ROUTER_H

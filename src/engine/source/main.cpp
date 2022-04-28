@@ -214,11 +214,9 @@ int main(int argc, char* argv[])
                             event, WAIT_DEQUEUE_TIMEOUT_USEC))
                     {
                         WAZUH_TRACE_SCOPE("Router on-next");
-                        router.input().on_next(ProtocolHandler::parse(event));
+                        router.routeEvent(event);
                     }
                 }
-
-                router.input().on_completed();
                 return 0;
             }};
 

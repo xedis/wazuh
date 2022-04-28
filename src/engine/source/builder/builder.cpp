@@ -41,12 +41,10 @@ struct SubGraph
  */
 static internals::Graph buildGraph(catalog::EnvironmentDefinition const& def)
 {
-    std::vector<SubGraph> subGraphs;
     internals::Graph decoders;
     internals::Graph rules;
     internals::Graph outputs;
     internals::Graph filters;
-
     for (auto const& asset : def.assetList)
     {
         switch (asset.type)
@@ -86,16 +84,16 @@ static internals::Graph buildGraph(catalog::EnvironmentDefinition const& def)
         }
     }
 
-    subGraphs.push_back({"INPUT_DECODER", "OUTPUT_DECODER", decoders});
-    subGraphs.push_back({"INPUT_RULE", "OUTPUT_RULE", rules});
-    subGraphs.push_back({"INPUT_OUTPUT", "OUTPUT_OUTPUT", outputs});
-
-    // Join and connect subgraphs, handle first outside loop
-    if (subGraphs.empty())
+    if (decoders.empty() && rules.empty() && outputs.empty())
     {
         throw std::runtime_error(
             "Error building graph, at least one subgraph must be defined");
     }
+
+    SubGraph subGraphs[3];
+    subGraphs[0] = {"INPUT_DECODER", "OUTPUT_DECODER", decoders};
+    subGraphs[1] = {"INPUT_RULE", "OUTPUT_RULE", rules};
+    subGraphs[2] = {"INPUT_OUTPUT", "OUTPUT_OUTPUT", outputs};
 
     // TODO here we create and throw away a lot of allocations by creating a
     // bunch of graphs because the join function creates a bunch of duplication
@@ -118,17 +116,19 @@ static internals::Graph buildGraph(catalog::EnvironmentDefinition const& def)
         ret.m_nodes["INPUT_OUTPUT"].m_parents.insert("OUTPUT_DECODER");
     }
 
+#if WAZUH_DEBUG
+    WAZUH_LOG_DEBUG("\n{}", ret.print());
+#endif
+
     return ret;
 }
 
-// Recursive visitor function to call all connectable lifters and
-// build the whole rxcpp pipeline
+// TODO revise this whole function to see if it can be converted to a simple
+// loop
 static void buildRxcppPipeline(internals::Graph& graph,
-                        internals::types::Observable source,
-                        std::string const& root,
-                        internals::types::Observable& out)
+                               internals::types::Observable source,
+                               std::string const& root)
 {
-    // Only must be executed one, graph input
     auto nd = graph.m_nodes.find(root);
     if (nd == graph.m_nodes.end())
     {
@@ -136,7 +136,9 @@ static void buildRxcppPipeline(internals::Graph& graph,
         return;
     }
 
-    if (nd->second.m_inputs.size() == 0)
+    // TODO why do this inside the function if it only should happen once with
+    // the root
+    if (nd->second.m_inputs.empty())
     {
         nd->second.addInput(source);
     }
@@ -147,9 +149,10 @@ static void buildRxcppPipeline(internals::Graph& graph,
         // TODO Error?
         return;
     }
+    auto const& [name, edges] = *edg;
 
     internals::types::Observable obs;
-    if (edg->second.size() > 1)
+    if (edges.size() > 1)
     {
         obs = graph.m_nodes[root].connect().publish().ref_count();
     }
@@ -159,36 +162,30 @@ static void buildRxcppPipeline(internals::Graph& graph,
     }
 
     // Add obs as an input to the childs
-    for (auto& n : edg->second)
+    // TODO this whole loop is SUPER confusing
+    // Can the case of the function returning and the loops continuing even
+    // happen? if that case cannot happen then this needs to be made simpler
+    for (auto& nd : edges)
     {
-        graph.m_nodes[n].addInput(obs);
-        if (graph.m_nodes[n].m_inputs.size() ==
-            graph.m_nodes[n].m_parents.size())
-            buildRxcppPipeline(graph, obs, n, out);
-    }
-
-    // Only executed one, graph output
-    if (edg->second.size() == 0)
-    {
-        out = obs;
+        auto& cn = graph.m_nodes[nd];
+        cn.addInput(obs);
+        if (cn.m_inputs.size() == cn.m_parents.size())
+        {
+            buildRxcppPipeline(graph, obs, nd);
+        }
     }
 };
 
-Environment buildEnvironment(catalog::EnvironmentDefinition const& def)
+EnvironmentRef buildEnvironment(catalog::EnvironmentDefinition const& def)
 {
     auto graph = buildGraph(def);
 
-    Environment ret {def.name};
+    EnvironmentRef ret = std::make_shared<Environment>();
+    ret->name = def.name;
     graph.visit([&](auto node)
-                { ret.traceSinks[node.m_name] = node.m_tracer.m_out; });
+                { ret->traceSinks[node.m_name] = node.m_tracer.m_out; });
 
-    ret.lifter =
-        [graph = std::move(graph)](internals::types::Observable o) mutable
-    {
-        internals::types::Observable out;
-        buildRxcppPipeline(graph, o, "INPUT_DECODER", out);
-        return out;
-    };
+    buildRxcppPipeline(graph, ret->subject.get_observable(), "INPUT_DECODER");
 
     return ret;
 }

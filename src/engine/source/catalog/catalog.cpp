@@ -182,6 +182,15 @@ std::string Catalog::getFileContents(AssetType type,
     return {};
 }
 
+// TODO consider instead returning
+// struct
+//{
+//     vector decoders
+//     vector output
+//     vector rules
+//     vector filters
+// }
+// so there's no need to depend on the asset type on the builder side
 EnvironmentDefinition
 Catalog::getEnvironmentDefinition(std::string const& envName) const
 {

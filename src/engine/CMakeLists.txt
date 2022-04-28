@@ -87,7 +87,11 @@ CPMAddPackage(
 # Targets
 ####################################################################################################
 # Build main
-add_executable(main ${ENGINE_SOURCE_DIR}/main.cpp)
+add_executable(main 
+    ${ENGINE_SOURCE_DIR}/main.cpp
+    #TODO revise adding this file here
+    ${ENGINE_SOURCE_DIR}/router/router.cpp
+    )
 
 target_include_directories(main
     PRIVATE
