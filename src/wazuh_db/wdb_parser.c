@@ -13,6 +13,7 @@
 #include "wdb.h"
 #include "wdb_agents.h"
 #include "external/cJSON/cJSON.h"
+#include "state.c"
 
 const char* SYSCOLLECTOR_LEGACY_CHECKSUM_VALUE = "legacy";
 
@@ -214,6 +215,8 @@ int wdb_parse(char * input, char * output, int peer) {
     char * out;
     int result = 0;
 
+    w_inc_queries_total();
+
     if (!input) {
         mdebug1("Empty input query.");
         return -1;
@@ -236,6 +239,8 @@ int wdb_parse(char * input, char * output, int peer) {
 
     if (strcmp(actor, "agent") == 0) {
         id = next;
+
+        w_inc_agent_queries();
 
         if (next = wstr_chr(id, ' '), !next) {
             mdebug1("Invalid DB query syntax.");
@@ -290,6 +295,8 @@ int wdb_parse(char * input, char * output, int peer) {
         }
 
         if (strcmp(query, "syscheck") == 0) {
+            w_inc_agent_syscheck_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid FIM query syntax.", sagent_id);
                 mdebug2("DB(%s) FIM query error near: %s", sagent_id, query);
@@ -299,6 +306,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_syscheck(wdb, WDB_FIM, next, output);
             }
         } else if (strcmp(query, "fim_file") == 0) {
+            w_inc_agent_fim_file_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid FIM file query syntax.", sagent_id);
                 mdebug2("DB(%s) FIM file query error near: %s", sagent_id, query);
@@ -308,6 +317,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_syscheck(wdb, WDB_FIM_FILE, next, output);
             }
         } else if (strcmp(query, "fim_registry") == 0) {
+            w_inc_agent_fim_registry_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid FIM registry query syntax.", sagent_id);
                 mdebug2("DB(%s) FIM registry query error near: %s", sagent_id, query);
@@ -317,6 +328,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_syscheck(wdb, WDB_FIM_REGISTRY, next, output);
             }
         } else if (strcmp(query, "sca") == 0) {
+            w_inc_agent_sca_queries();
+
             if (!next) {
                 mdebug1("Invalid DB query syntax.");
                 mdebug2("DB query error near: %s", query);
@@ -444,6 +457,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else if (strcmp(query, "dbsync") == 0) {
+            w_inc_agent_dbsync_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid DB query syntax.", sagent_id);
                 mdebug2("DB(%s) query error near: %s", sagent_id, query);
@@ -455,6 +470,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else if (strcmp(query, "ciscat") == 0) {
+            w_inc_agent_ciscat_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid DB query syntax.", sagent_id);
                 mdebug2("DB(%s) query error near: %s", sagent_id, query);
@@ -468,6 +485,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else if (strcmp(query, "rootcheck") == 0) {
+            w_inc_agent_rootcheck_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid rootcheck query syntax.", sagent_id);
                 mdebug2("DB(%s) rootcheck query error near: %s", sagent_id, query);
@@ -477,6 +496,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_rootcheck(wdb, next, output);
             }
         } else if (strcmp(query, "vuln_cves") == 0) {
+            w_inc_agent_vul_detector_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid vuln_cves query syntax.", sagent_id);
                 mdebug2("DB(%s) vuln_cves query error near: %s", sagent_id, query);
@@ -486,6 +507,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_vuln_cves(wdb, next, output);
             }
         } else if (strcmp(query, "sql") == 0) {
+            w_inc_agent_sql_queries();
+
             if (!next) {
                 mdebug1("DB(%s) Invalid DB query syntax.", sagent_id);
                 mdebug2("DB(%s) query error near: %s", sagent_id, query);
@@ -507,6 +530,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else if (strcmp(query, "remove") == 0) {
+            w_inc_agent_remove_queries();
+
             wdb_leave(wdb);
             snprintf(output, OS_MAXSTR + 1, "ok");
             result = 0;
@@ -527,6 +552,8 @@ int wdb_parse(char * input, char * output, int peer) {
             w_mutex_unlock(&pool_mutex);
             return result;
         } else if (strcmp(query, "begin") == 0) {
+            w_inc_agent_begin_queries();
+
             if (wdb_begin2(wdb) < 0) {
                 mdebug1("DB(%s) Cannot begin transaction.", sagent_id);
                 snprintf(output, OS_MAXSTR + 1, "err Cannot begin transaction");
@@ -535,6 +562,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 snprintf(output, OS_MAXSTR + 1, "ok");
             }
         } else if (strcmp(query, "commit") == 0) {
+            w_inc_agent_commit_queries();
+
             if (wdb_commit2(wdb) < 0) {
                 mdebug1("DB(%s) Cannot end transaction.", sagent_id);
                 snprintf(output, OS_MAXSTR + 1, "err Cannot end transaction");
@@ -543,6 +572,8 @@ int wdb_parse(char * input, char * output, int peer) {
                 snprintf(output, OS_MAXSTR + 1, "ok");
             }
         } else if (strcmp(query, "close") == 0) {
+            w_inc_agent_close_queries();
+
             wdb_leave(wdb);
             w_mutex_lock(&pool_mutex);
 
@@ -567,6 +598,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_syscollector(wdb, query, next, output);
             }
         } else {
+            w_inc_agent_unknown_queries();
             mdebug1("DB(%s) Invalid DB query syntax.", sagent_id);
             mdebug2("DB(%s) query error near: %s", sagent_id, query);
             snprintf(output, OS_MAXSTR + 1, "err Invalid DB query syntax, near '%.32s'", query);
@@ -577,6 +609,8 @@ int wdb_parse(char * input, char * output, int peer) {
     } else if (strcmp(actor, "wazuhdb") == 0) {
         query = next;
 
+        w_inc_wazuhdb_queries();
+
         if (next = wstr_chr(query, ' '), !next) {
             mdebug1("Invalid DB query syntax.");
             mdebug2("DB query error near: %s", query);
@@ -586,12 +620,14 @@ int wdb_parse(char * input, char * output, int peer) {
         *next++ = '\0';
 
         if(strcmp(query, "remove") == 0) {
+            w_inc_wazuhdb_remove_queries();
             data = wdb_remove_multiple_agents(next);
             out = cJSON_PrintUnformatted(data);
             snprintf(output, OS_MAXSTR + 1, "ok %s", out);
             os_free(out);
             cJSON_Delete(data);
         } else {
+            w_inc_wazuhdb_unknown_queries();
             mdebug1("Invalid DB query syntax.");
             mdebug2("DB query error near: %s", query);
             snprintf(output, OS_MAXSTR + 1, "err No agents id provided");
