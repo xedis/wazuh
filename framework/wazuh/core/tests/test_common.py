@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from wazuh.core.common import find_wazuh_path, wazuh_uid, wazuh_gid, context_cached, reset_context_cache, \
-    get_context_cache
+    get_context_cache, load_spec
 
 
 @pytest.mark.parametrize('fake_path, expected', [
@@ -70,3 +70,14 @@ def test_context_cached():
                                                                                'calls to foo. '
     assert isinstance(get_context_cache()[json.dumps({"key": "foobar", "args": [], "kwargs": {"data": "bar"}})],
                       ContextVar)
+
+
+@patch('yaml.safe_load')
+def test_load_spec(mock_safe_load):
+    """Test if the function load_spec works properly."""
+    # To execute the function first it's necessary to clear the cache.
+    load_spec.cache_clear()
+    load_spec()
+    mock_safe_load.assert_called()
+    # Clearing the cache again since this call used mocked resources.
+    load_spec.cache_clear()

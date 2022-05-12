@@ -4,15 +4,13 @@
 
 import logging
 import socket
-from datetime import datetime
 
 from aiohttp import web
 
 from api.encoder import dumps, prettify
 from api.models.basic_info_model import BasicInfo
-from wazuh.core.common import DATE_FORMAT
+from wazuh.core.common import DATE_FORMAT, load_spec
 from wazuh.core.results import WazuhResult
-from wazuh.core.security import load_spec
 from wazuh.core.utils import get_utc_now
 
 logger = logging.getLogger('wazuh-api')

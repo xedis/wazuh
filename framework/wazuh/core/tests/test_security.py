@@ -4,28 +4,8 @@
 
 from contextvars import ContextVar
 from unittest.mock import patch
-from wazuh.tests.test_security import db_setup
+
 import pytest
-
-
-@patch('yaml.safe_load')
-def test_load_spec(mock_safe_load, db_setup):
-    """Test if the function load_spec works properly.
-
-    Parameters
-    ----------
-    mock_safe_load: MagicMock
-        Mock of safe_load method.
-    db_setup: callable
-        This function creates the rbac.db file.
-    """
-    security, _, _ = db_setup
-    # To execute the function first it's necessary to clear the cache.
-    security.load_spec.cache_clear()
-    security.load_spec()
-    mock_safe_load.assert_called()
-    # Clearing the cache again since this call used mocked resources.
-    security.load_spec.cache_clear()
 
 
 def test_revoke_tokens(db_setup):

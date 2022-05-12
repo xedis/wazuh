@@ -8,9 +8,7 @@ with patch('wazuh.common.wazuh_uid'):
     with patch('wazuh.common.wazuh_gid'):
         sys.modules['wazuh.rbac.orm'] = MagicMock()
         import wazuh.rbac.decorators
-        from api.controllers.default_controller import (BasicInfo, DATE_FORMAT,
-                                                        datetime, default_info,
-                                                        socket)
+        from api.controllers.default_controller import (BasicInfo, DATE_FORMAT, default_info, socket)
         from wazuh.tests.util import RBAC_bypasser
         from wazuh.core.utils import get_utc_now
         wazuh.rbac.decorators.expose_resources = RBAC_bypasser
