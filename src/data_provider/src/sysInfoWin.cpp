@@ -37,6 +37,7 @@
 #include "ports/portWindowsWrapper.h"
 #include "ports/portImpl.h"
 #include "packages/packagesWindowsParserHelper.h"
+#include <iostream>
 
 constexpr auto BASEBOARD_INFORMATION_TYPE{2};
 constexpr auto CENTRAL_PROCESSOR_REGISTRY{"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"};
@@ -251,30 +252,39 @@ static std::string parseRawSmbios(const BYTE* rawData, const DWORD rawDataSize)
 {
     std::string serialNumber;
     DWORD offset{0};
+    std::cout << "Starting parsing in function 'parseRawSmbios':" << std::endl;
     while (offset < rawDataSize && serialNumber.empty())
     {
         SMBIOSStructureHeader header{};
         memcpy(&header, rawData + offset, sizeof(SMBIOSStructureHeader));
         if (BASEBOARD_INFORMATION_TYPE == header.Type)
         {
+            std::cout << "First type." << std::endl;
             SMBIOSBasboardInfoStructure info{};
             memcpy(&info, rawData + offset, sizeof(SMBIOSBasboardInfoStructure));
             offset += info.FormattedAreaLength;
             for (BYTE i = 1; i < info.SerialNumber; ++i)
             {
                 const char* tmp{reinterpret_cast<const char*>(rawData + offset)};
+                std::cout << "New SMBIOS table line: '";
+                std::cout << tmp << "'" << std::endl;
                 const auto len{ strlen(tmp) };
                 offset += len + sizeof(char);
             }
             serialNumber = reinterpret_cast<const char*>(rawData + offset);
+            std::cout << "Serial number: '";
+            std::cout << serialNumber << "'" << std::endl;
         }
         else
         {
+            std::cout << "Second type." << std::endl;
             offset += header.FormattedAreaLength;
             bool end{false};
             while(!end)
             {
                 const char* tmp{reinterpret_cast<const char*>(rawData + offset)};
+                std::cout << "New SMBIOS table line: '";
+                std::cout << tmp << "'" << std::endl;
                 const auto len{strlen(tmp)};
                 offset += len + sizeof(char);
                 end = !len;
