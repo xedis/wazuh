@@ -646,6 +646,8 @@ int wdb_parse(char * input, char * output, int peer) {
     } else if(strcmp(actor, "mitre") == 0) {
         query = next;
 
+        w_inc_mitre();
+
         mdebug2("Mitre query: %s", query);
 
         if (wdb = wdb_open_mitre(), !wdb) {
@@ -666,6 +668,7 @@ int wdb_parse(char * input, char * output, int peer) {
         *next++ = '\0';
 
         if (strcmp(query, "sql") == 0) {
+            w_inc_mitre_sql();
             if (!next) {
                 mdebug1("Mitre DB Invalid DB query syntax.");
                 mdebug2("Mitre DB query error near: %s", query);
@@ -687,6 +690,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else {
+            w_inc_mitre_unknown();
             mdebug1("Invalid DB query syntax.");
             mdebug2("DB query error near: %s", query);
             snprintf(output, OS_MAXSTR + 1, "err Invalid DB query syntax, near '%.32s'", query);
@@ -696,6 +700,8 @@ int wdb_parse(char * input, char * output, int peer) {
         return result;
     } else if(strcmp(actor, "global") == 0) {
         query = next;
+
+        w_inc_global();
 
         mdebug2("Global query: %s", query);
 
@@ -712,6 +718,7 @@ int wdb_parse(char * input, char * output, int peer) {
         }
 
         if (strcmp(query, "sql") == 0) {
+            w_inc_global_sql();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax.");
                 mdebug2("Global DB query error near: %s", query);
@@ -731,6 +738,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else if (strcmp(query, "insert-agent") == 0) {
+            w_inc_global_agent_insert_agent();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for insert-agent.");
                 mdebug2("Global DB query error near: %s", query);
@@ -740,6 +748,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_insert_agent(wdb, next, output);
             }
         } else if (strcmp(query, "update-agent-name") == 0) {
+            w_inc_global_agent_update_agent_name();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for update-agent-name.");
                 mdebug2("Global DB query error near: %s", query);
@@ -749,6 +758,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_update_agent_name(wdb, next, output);
             }
         } else if (strcmp(query, "update-agent-data") == 0) {
+            w_inc_global_agent_update_agent_data();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for update-agent-data.");
                 mdebug2("Global DB query error near: %s", query);
@@ -758,6 +768,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_update_agent_data(wdb, next, output);
             }
         } else if (strcmp(query, "get-labels") == 0) {
+            w_inc_global_labels_get_labels();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for get-labels.");
                 mdebug2("Global DB query error near: %s", query);
@@ -767,6 +778,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_get_agent_labels(wdb, next, output);
             }
         } else if (strcmp(query, "set-labels") == 0) {
+            w_inc_global_labels_set_labels();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for set-labels.");
                 mdebug2("Global DB query error near: %s", query);
@@ -776,6 +788,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_set_agent_labels(wdb, next, output);
             }
         } else if (strcmp(query, "update-keepalive") == 0) {
+            w_inc_global_agent_update_keepalive();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for update-keepalive.");
                 mdebug2("Global DB query error near: %s", query);
@@ -785,6 +798,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_update_agent_keepalive(wdb, next, output);
             }
         } else if (strcmp(query, "update-connection-status") == 0) {
+            w_inc_global_agent_update_connection_status();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for update-connection-status.");
                 mdebug2("Global DB query error near: %s", query);
@@ -794,6 +808,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_update_connection_status(wdb, next, output);
             }
         } else if (strcmp(query, "delete-agent") == 0) {
+            w_inc_global_agent_delete_agent();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for delete-agent.");
                 mdebug2("Global DB query error near: %s", query);
@@ -803,6 +818,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_delete_agent(wdb, next, output);
             }
         } else if (strcmp(query, "select-agent-name") == 0) {
+            w_inc_global_agent_select_agent_name();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for select-agent-name.");
                 mdebug2("Global DB query error near: %s", query);
@@ -812,6 +828,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_select_agent_name(wdb, next, output);
             }
         } else if (strcmp(query, "select-agent-group") == 0) {
+            w_inc_global_agent_select_agent_group();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for select-agent-group.");
                 mdebug2("Global DB query error near: %s", query);
@@ -821,6 +838,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_select_agent_group(wdb, next, output);
             }
         } else if (strcmp(query, "delete-agent-belong") == 0) {
+            w_inc_global_belongs_delete_agent_belong();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for delete-agent-belong.");
                 mdebug2("Global DB query error near: %s", query);
@@ -830,6 +848,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_delete_agent_belong(wdb, next, output);
             }
         } else if (strcmp(query, "find-agent") == 0) {
+            w_inc_global_agent_find_agent();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for find-agent.");
                 mdebug2("Global DB query error near: %s", query);
@@ -839,6 +858,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_find_agent(wdb, next, output);
             }
         } else if (strcmp(query, "update-agent-group") == 0) {
+            w_inc_global_agent_update_agent_group();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for update-agent-group.");
                 mdebug2("Global DB query error near: %s", query);
@@ -848,6 +868,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_update_agent_group(wdb, next, output);
             }
         } else if (strcmp(query, "find-group") == 0) {
+            w_inc_global_group_find_group();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for find-group.");
                 mdebug2("Global DB query error near: %s", query);
@@ -857,6 +878,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_find_group(wdb, next, output);
             }
         } else if (strcmp(query, "insert-agent-group") == 0) {
+            w_inc_global_group_insert_agent_group();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for insert-agent-group.");
                 mdebug2("Global DB query error near: %s", query);
@@ -866,6 +888,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_insert_agent_group(wdb, next, output);
             }
         } else if (strcmp(query, "insert-agent-belong") == 0) {
+            w_inc_global_belongs_insert_agent_belong();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for insert-agent-belong.");
                 mdebug2("Global DB query error near: %s", query);
@@ -875,6 +898,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_insert_agent_belong(wdb, next, output);
             }
         } else if (strcmp(query, "delete-group-belong") == 0) {
+            w_inc_global_belongs_delete_group_belong();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for delete-group-belong.");
                 mdebug2("Global DB query error near: %s", query);
@@ -884,6 +908,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_delete_group_belong(wdb, next, output);
             }
         } else if (strcmp(query, "delete-group") == 0) {
+            w_inc_global_group_delete_group();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for delete-group.");
                 mdebug2("Global DB query error near: %s", query);
@@ -893,8 +918,10 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_delete_group(wdb, next, output);
             }
         } else if (strcmp(query, "select-groups") == 0) {
+            w_inc_global_group_select_groups();
             result = wdb_parse_global_select_groups(wdb, output);
         } else if (strcmp(query, "select-keepalive") == 0) {
+            w_inc_global_agent_select_keepalive();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for select-keepalive.");
                 mdebug2("Global DB query error near: %s", query);
@@ -904,8 +931,10 @@ int wdb_parse(char * input, char * output, int peer) {
                 result = wdb_parse_global_select_agent_keepalive(wdb, next, output);
             }
         } else if (strcmp(query, "sync-agent-info-get") == 0) {
+            w_inc_global_agent_sync_agent_info_get();
             result = wdb_parse_global_sync_agent_info_get(wdb, next, output);
         } else if (strcmp(query, "sync-agent-info-set") == 0) {
+            w_inc_global_agent_sync_agent_info_set();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for sync-agent-info-set.");
                 mdebug2("Global DB query error near: %s", query);
@@ -916,6 +945,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else if (strcmp(query, "disconnect-agents") == 0) {
+            w_inc_global_agent_disconnect_agents();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for disconnect-agents.");
                 mdebug2("Global DB query error near: %s", query);
@@ -926,6 +956,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else if (strcmp(query, "get-all-agents") == 0) {
+            w_inc_global_agent_get_all_agents();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for get-all-agents.");
                 mdebug2("Global DB query error near: %s", query);
@@ -936,6 +967,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else if (strcmp(query, "get-agent-info") == 0) {
+            w_inc_global_agent_get_agent_info();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for get-agent-info.");
                 mdebug2("Global DB query error near: %s", query);
@@ -946,6 +978,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else if (strcmp(query, "reset-agents-connection") == 0) {
+            w_inc_global_agent_reset_agents_connection();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for reset-agents-connection.");
                 mdebug2("Global DB query error near: %s", query);
@@ -956,6 +989,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else if (strcmp(query, "get-agents-by-connection-status") == 0) {
+            w_inc_global_agent_get_agents_by_connection_status();
             if (!next) {
                 mdebug1("Global DB Invalid DB query syntax for get-agents-by-connection-status.");
                 mdebug2("Global DB query error near: %s", query);
@@ -966,6 +1000,7 @@ int wdb_parse(char * input, char * output, int peer) {
             }
         }
         else {
+            w_inc_global_unknown();
             mdebug1("Invalid DB query syntax.");
             mdebug2("Global DB query error near: %s", query);
             snprintf(output, OS_MAXSTR + 1, "err Invalid DB query syntax, near '%.32s'", query);
@@ -977,6 +1012,8 @@ int wdb_parse(char * input, char * output, int peer) {
         cJSON *parameters_json = NULL;
         const char *json_err;
         query = next;
+
+        w_inc_task();
 
         mdebug2("Task query: %s", query);
 
@@ -999,6 +1036,7 @@ int wdb_parse(char * input, char * output, int peer) {
         *next++ = '\0';
 
         if (!strcmp("upgrade", query)) {
+            w_inc_task_upgrade();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1018,6 +1056,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("upgrade_custom", query)) {
+            w_inc_task_upgrade_custom();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1037,6 +1076,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("upgrade_get_status", query)) {
+            w_inc_task_upgrade_get_status();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1056,6 +1096,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("upgrade_update_status", query)) {
+            w_inc_task_upgrade_update_status();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1075,6 +1116,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("upgrade_result", query)) {
+            w_inc_task_upgrade_result();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1094,6 +1136,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("upgrade_cancel_tasks", query)) {
+            w_inc_task_upgrade_cancel_tasks();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1113,6 +1156,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("set_timeout", query)) {
+            w_inc_task_set_timeout();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1132,6 +1176,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("delete_old", query)) {
+            w_inc_task_delete_old();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1151,6 +1196,7 @@ int wdb_parse(char * input, char * output, int peer) {
             cJSON_Delete(parameters_json);
 
         } else if (!strcmp("sql", query)) {
+            w_inc_task_sql();
             if (!next) {
                 mdebug1("Task DB Invalid DB query syntax.");
                 mdebug2("Task DB query error near: %s", query);
@@ -1172,6 +1218,7 @@ int wdb_parse(char * input, char * output, int peer) {
                 }
             }
         } else {
+            w_inc_task_unknown();
             mdebug1("Invalid DB query syntax.");
             mdebug2("Task DB query error near: %s", query);
             snprintf(output, OS_MAXSTR + 1, "err Invalid DB query syntax, near '%.32s'", query);
@@ -1180,6 +1227,7 @@ int wdb_parse(char * input, char * output, int peer) {
         wdb_leave(wdb);
         return result;
     } else {
+        w_inc_unknown();
         mdebug1("DB(%s) Invalid DB query actor: %s", sagent_id, actor);
         snprintf(output, OS_MAXSTR + 1, "err Invalid DB query actor: '%.32s'", actor);
         return OS_INVALID;
