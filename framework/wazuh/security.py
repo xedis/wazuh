@@ -1062,11 +1062,11 @@ def get_rbac_resources(resource: str = None):
         RBAC resources
     """
     if not resource:
-        return WazuhResult({'data': load_spec()['x-rbac-catalog']['resources']})
+        return WazuhResult({'data': common.load_spec()['x-rbac-catalog']['resources']})
     else:
-        if resource not in load_spec()['x-rbac-catalog']['resources'].keys():
+        if resource not in common.load_spec()['x-rbac-catalog']['resources'].keys():
             raise WazuhError(4019)
-        return WazuhResult({'data': {resource: load_spec()['x-rbac-catalog']['resources'][resource]}})
+        return WazuhResult({'data': {resource: common.load_spec()['x-rbac-catalog']['resources'][resource]}})
 
 
 @lru_cache(maxsize=None)
@@ -1086,7 +1086,7 @@ def get_rbac_actions(endpoint: str = None):
     endpoints_list = get_api_endpoints()
     if endpoint and endpoint not in endpoints_list:
         raise WazuhError(4020, extra_remediation=endpoints_list)
-    info_data = load_spec()
+    info_data = common.load_spec()
     data = dict()
     for path, path_info in info_data['paths'].items():
         for method, payload in path_info.items():
