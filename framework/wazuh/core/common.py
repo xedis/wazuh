@@ -137,6 +137,10 @@ def load_spec():
         return yaml.safe_load(stream)
 
 
+def get_api_revision():
+    return load_spec()['info']['x-revision']
+
+
 # ================================================= Context variables ==================================================
 rbac: ContextVar[Dict] = ContextVar('rbac', default={'rbac_mode': 'black'})
 current_user: ContextVar[str] = ContextVar('current_user', default='')
